@@ -1,0 +1,82 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - depguard
+    - durationcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - forcetypeassert
+    - gocritic
+    - gosec
+    - makezero
+    - misspell
+    - modernize
+    - nilerr
+    - noctx
+    - nolintlint
+    - predeclared
+    - reassign
+    - revive
+    - sloglint
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+    revive:
+      rules:
+        - name: var-naming
+        - name: error-strings
+        - name: unexported-return
+        - name: use-any
+    depguard:
+      rules:
+        domain:
+          files:
+            - "**/internal/quiz/domain/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+        application:
+          files:
+            - "**/internal/quiz/application/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - gitlab.com/orltom/questionnaire/backend/internal/quiz/domain
+        database:
+          files:
+            - "**/internal/quiz/infrastructure/database/*.go"
+            - "!$test"
+          deny:
+            - pkg: gitlab.com/orltom/questionnaire/backend/internal/quiz/infrastructure/rest
+              desc: repositories must not depend on the HTTP layer
+        rest:
+          files:
+            - "**/internal/quiz/infrastructure/rest/*.go"
+            - "!$test"
+          deny:
+            - pkg: gitlab.com/orltom/questionnaire/backend/internal/quiz/infrastructure/database
+              desc: handlers must go through application services
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(gitlab.com/orltom/questionnaire/backend)

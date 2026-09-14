@@ -1,0 +1,417 @@
+openapi: 3.1.0
+
+info:
+  title: Questionnaire API
+  version: 0.1.0
+  description: API for managing quizzes, catalogs and questions.
+
+servers:
+  - url: /api/v1
+
+paths:
+  /quizzes:
+    post:
+      summary: Create quiz
+      operationId: createQuiz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuiz"
+      responses:
+        "201":
+          description: Quiz created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quiz"
+
+  /quizzes/{quizId}:
+    parameters:
+      - $ref: "#/components/parameters/QuizId"
+
+    get:
+      summary: Get quiz
+      operationId: getQuiz
+      responses:
+        "200":
+          description: Quiz
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quiz"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update quiz
+      operationId: updateQuiz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuiz"
+      responses:
+        "204":
+          description: Quiz updated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete quiz
+      operationId: deleteQuiz
+      responses:
+        "204":
+          description: Quiz deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /catalogs:
+    post:
+      summary: Create catalog
+      operationId: createCatalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCatalog"
+      responses:
+        "201":
+          description: Catalog created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Catalog"
+
+  /catalogs/{catalogId}:
+    parameters:
+      - $ref: "#/components/parameters/CatalogId"
+
+    get:
+      summary: Get catalog
+      operationId: getCatalog
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Catalog"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update catalog
+      operationId: updateCatalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCatalog"
+      responses:
+        "204":
+          description: Catalog updated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete catalog
+      operationId: deleteCatalog
+      responses:
+        "204":
+          description: Catalog deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /questions:
+    post:
+      summary: Create question
+      operationId: createQuestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestion"
+      responses:
+        "201":
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+
+  /questions/{questionId}:
+    parameters:
+      - $ref: "#/components/parameters/QuestionId"
+
+    get:
+      summary: Get question
+      operationId: getQuestion
+      responses:
+        "200":
+          description: Question
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update question
+      operationId: updateQuestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuestion"
+      responses:
+        "204":
+          description: Question updated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete question
+      operationId: deleteQuestion
+      responses:
+        "204":
+          description: Question deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    QuizId:
+      name: quizId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    CatalogId:
+      name: catalogId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    QuestionId:
+      name: questionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    NotFound:
+      description: Resource not found
+
+  schemas:
+    Visibility:
+      type: string
+      enum:
+        - public
+        - private
+
+    QuizQuestion:
+      type: object
+      required:
+        - questionId
+        - position
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          minimum: 0
+
+    Quiz:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - visibility
+        - questions
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuizQuestion"
+
+    CreateQuiz:
+      type: object
+      required:
+        - title
+        - description
+        - visibility
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          default: ""
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        questions:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/QuizQuestion"
+
+    UpdateQuiz:
+      type: object
+      required:
+        - title
+        - description
+        - visibility
+        - questions
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuizQuestion"
+
+    Catalog:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - questionIds
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        questionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    CreateCatalog:
+      type: object
+      required:
+        - title
+        - description
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          default: ""
+        questionIds:
+          type: array
+          default: []
+          items:
+            type: string
+            format: uuid
+
+    UpdateCatalog:
+      type: object
+      required:
+        - title
+        - description
+        - questionIds
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        questionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    Answer:
+      type: object
+      required:
+        - description
+        - position
+        - count
+      properties:
+        description:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+        count:
+          type: integer
+          minimum: 0
+
+    Question:
+      type: object
+      required:
+        - id
+        - description
+        - answers
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        answers:
+          type: array
+          minItems: 0
+          items:
+            $ref: "#/components/schemas/Answer"
+
+    CreateQuestion:
+      type: object
+      required:
+        - description
+        - answers
+      properties:
+        description:
+          type: string
+        answers:
+          type: array
+          minItems: 0
+          items:
+            $ref: "#/components/schemas/Answer"
+
+    UpdateQuestion:
+      type: object
+      required:
+        - description
+        - answers
+      properties:
+        description:
+          type: string
+        answers:
+          type: array
+          minItems: 0
+          items:
+            $ref: "#/components/schemas/Answer"

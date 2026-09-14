@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+silent: false
+
+tasks:
+  default:
+    desc: build back-end application
+    deps: [build]
+
+  generate:
+    desc: generate server stubs from ../api/openapi.yaml
+    cmds:
+      - go generate ./...
+    sources:
+      - ../api/openapi.yaml
+      - api/oapi-codegen.yaml
+    generates:
+      - api/server.gen.go
+
+  lint:
+    desc: run golangci-lint
+    deps: [generate]
+    cmds:
+      - go tool golangci-lint run ./...
+
+  tidy:
+    desc: add missing and remove unused modules
+    cmds:
+      - go mod tidy
+
+  verify:
+    desc: verify dependencies have expected content
+    cmds:
+      - go mod verify
+
+  check:
+    desc: tidy, verify, lint and build
+    cmds:
+      - task: tidy
+      - task: verify
+      - task: lint
+      - task: build
+
+  build:
+    desc: build back-end application
+    deps: [generate]
+    cmds:
+      - go build -o bin/server ./cmd/server
