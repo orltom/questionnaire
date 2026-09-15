@@ -3,7 +3,7 @@ openapi: 3.1.0
 info:
   title: Questionnaire API
   version: 0.1.0
-  description: API for managing quizzes, catalogs and questions.
+  description: API for managing quizzes and questions.
 
 servers:
   - url: /api/v1
@@ -65,65 +65,6 @@ paths:
       responses:
         "204":
           description: Quiz deleted
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /catalogs:
-    post:
-      summary: Create catalog
-      operationId: createCatalog
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateCatalog"
-      responses:
-        "201":
-          description: Catalog created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Catalog"
-
-  /catalogs/{catalogId}:
-    parameters:
-      - $ref: "#/components/parameters/CatalogId"
-
-    get:
-      summary: Get catalog
-      operationId: getCatalog
-      responses:
-        "200":
-          description: Catalog
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Catalog"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-    put:
-      summary: Update catalog
-      operationId: updateCatalog
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateCatalog"
-      responses:
-        "204":
-          description: Catalog updated
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-    delete:
-      summary: Delete catalog
-      operationId: deleteCatalog
-      responses:
-        "204":
-          description: Catalog deleted
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -190,14 +131,6 @@ components:
   parameters:
     QuizId:
       name: quizId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-
-    CatalogId:
-      name: catalogId
       in: path
       required: true
       schema:
@@ -297,62 +230,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/QuizQuestion"
-
-    Catalog:
-      type: object
-      required:
-        - id
-        - title
-        - description
-        - questionIds
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        description:
-          type: string
-        questionIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-
-    CreateCatalog:
-      type: object
-      required:
-        - title
-        - description
-      properties:
-        title:
-          type: string
-        description:
-          type: string
-          default: ""
-        questionIds:
-          type: array
-          default: []
-          items:
-            type: string
-            format: uuid
-
-    UpdateCatalog:
-      type: object
-      required:
-        - title
-        - description
-        - questionIds
-      properties:
-        title:
-          type: string
-        description:
-          type: string
-        questionIds:
-          type: array
-          items:
-            type: string
-            format: uuid
 
     Answer:
       type: object

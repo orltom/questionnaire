@@ -38,21 +38,6 @@ type Answer struct {
 	Position    int    `json:"position"`
 }
 
-// Catalog defines model for Catalog.
-type Catalog struct {
-	Description string      `json:"description"`
-	Id          uuid.UUID   `json:"id"`
-	QuestionIds []uuid.UUID `json:"questionIds"`
-	Title       string      `json:"title"`
-}
-
-// CreateCatalog defines model for CreateCatalog.
-type CreateCatalog struct {
-	Description string       `json:"description"`
-	QuestionIds *[]uuid.UUID `json:"questionIds,omitempty"`
-	Title       string       `json:"title"`
-}
-
 // CreateQuestion defines model for CreateQuestion.
 type CreateQuestion struct {
 	Answers     []Answer `json:"answers"`
@@ -89,13 +74,6 @@ type QuizQuestion struct {
 	QuestionId uuid.UUID `json:"questionId"`
 }
 
-// UpdateCatalog defines model for UpdateCatalog.
-type UpdateCatalog struct {
-	Description string      `json:"description"`
-	QuestionIds []uuid.UUID `json:"questionIds"`
-	Title       string      `json:"title"`
-}
-
 // UpdateQuestion defines model for UpdateQuestion.
 type UpdateQuestion struct {
 	Answers     []Answer `json:"answers"`
@@ -113,20 +91,11 @@ type UpdateQuiz struct {
 // Visibility defines model for Visibility.
 type Visibility string
 
-// CatalogId defines model for CatalogId.
-type CatalogId = uuid.UUID
-
 // QuestionId defines model for QuestionId.
 type QuestionId = uuid.UUID
 
 // QuizId defines model for QuizId.
 type QuizId = uuid.UUID
-
-// CreateCatalogJSONRequestBody defines body for CreateCatalog for application/json ContentType.
-type CreateCatalogJSONRequestBody = CreateCatalog
-
-// UpdateCatalogJSONRequestBody defines body for UpdateCatalog for application/json ContentType.
-type UpdateCatalogJSONRequestBody = UpdateCatalog
 
 // CreateQuestionJSONRequestBody defines body for CreateQuestion for application/json ContentType.
 type CreateQuestionJSONRequestBody = CreateQuestion
@@ -142,18 +111,6 @@ type UpdateQuizJSONRequestBody = UpdateQuiz
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// CreateCatalog Create catalog
-	// (POST /catalogs)
-	CreateCatalog(w http.ResponseWriter, r *http.Request)
-	// DeleteCatalog Delete catalog
-	// (DELETE /catalogs/{catalogId})
-	DeleteCatalog(w http.ResponseWriter, r *http.Request, catalogId CatalogId)
-	// GetCatalog Get catalog
-	// (GET /catalogs/{catalogId})
-	GetCatalog(w http.ResponseWriter, r *http.Request, catalogId CatalogId)
-	// UpdateCatalog Update catalog
-	// (PUT /catalogs/{catalogId})
-	UpdateCatalog(w http.ResponseWriter, r *http.Request, catalogId CatalogId)
 	// CreateQuestion Create question
 	// (POST /questions)
 	CreateQuestion(w http.ResponseWriter, r *http.Request)
@@ -188,98 +145,6 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
-
-// CreateCatalog operation middleware
-func (siw *ServerInterfaceWrapper) CreateCatalog(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateCatalog(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteCatalog operation middleware
-func (siw *ServerInterfaceWrapper) DeleteCatalog(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "catalogId" -------------
-	var catalogId CatalogId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "catalogId", r.PathValue("catalogId"), &catalogId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "catalogId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteCatalog(w, r, catalogId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetCatalog operation middleware
-func (siw *ServerInterfaceWrapper) GetCatalog(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "catalogId" -------------
-	var catalogId CatalogId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "catalogId", r.PathValue("catalogId"), &catalogId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "catalogId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCatalog(w, r, catalogId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateCatalog operation middleware
-func (siw *ServerInterfaceWrapper) UpdateCatalog(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "catalogId" -------------
-	var catalogId CatalogId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "catalogId", r.PathValue("catalogId"), &catalogId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "catalogId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateCatalog(w, r, catalogId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
 
 // CreateQuestion operation middleware
 func (siw *ServerInterfaceWrapper) CreateQuestion(w http.ResponseWriter, r *http.Request) {
@@ -589,10 +454,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/quizzes/{quizId}", wrapper.DeleteQuiz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/quizzes/{quizId}", wrapper.GetQuiz)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/quizzes/{quizId}", wrapper.UpdateQuiz)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/catalogs", wrapper.CreateCatalog)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/catalogs/{catalogId}", wrapper.DeleteCatalog)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/catalogs/{catalogId}", wrapper.GetCatalog)
-	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/catalogs/{catalogId}", wrapper.UpdateCatalog)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/questions", wrapper.CreateQuestion)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/questions/{questionId}", wrapper.DeleteQuestion)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/questions/{questionId}", wrapper.GetQuestion)

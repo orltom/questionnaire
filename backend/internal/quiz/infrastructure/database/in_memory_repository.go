@@ -8,18 +8,6 @@ import (
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
 )
 
-var _ application.CatalogRepository = (*InMemoryRepository[domain.CatalogID, domain.Catalog])(nil)
-
-func NewInMemoryCatalogRepository() *InMemoryRepository[domain.CatalogID, domain.Catalog] {
-	return &InMemoryRepository[domain.CatalogID, domain.Catalog]{
-		cache: make(map[domain.CatalogID]domain.Catalog),
-		mx:    sync.RWMutex{},
-		id: func(catalog domain.Catalog) domain.CatalogID {
-			return catalog.ID()
-		},
-	}
-}
-
 var _ application.QuestionRepository = (*InMemoryRepository[domain.QuestionID, domain.Question])(nil)
 
 func NewInMemoryQuestionRepository() *InMemoryRepository[domain.QuestionID, domain.Question] {

@@ -27,14 +27,12 @@ func main() {
 	slog.SetDefault(logger)
 
 	// initialize business components...
-	catalogRepository := database.NewInMemoryCatalogRepository()
 	questionRepository := database.NewInMemoryQuestionRepository()
 	quizRepository := database.NewInMemoryQuizRepository()
 
-	catalogSvc := application.NewCatalogService(catalogRepository, questionRepository)
 	questionSvc := application.NewQuestionService(questionRepository)
 	quizSvc := application.NewQuizService(quizRepository, questionRepository)
-	server := rest.NewHTTPServer(catalogSvc, questionSvc, quizSvc)
+	server := rest.NewHTTPServer(questionSvc, quizSvc)
 
 	// start HTTP Server ...
 	mux := http.NewServeMux()
