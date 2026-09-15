@@ -1,5 +1,7 @@
 # Questionnaire Back-end
 
+[![Back-end](https://github.com/orltom/questionnaire/actions/workflows/backend.yml/badge.svg?branch=main)](https://github.com/orltom/questionnaire/actions/workflows/backend.yml)
+
 Back-end application for an API first platform for creating and running questionnaires.
 
 ## Requirements
