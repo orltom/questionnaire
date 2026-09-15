@@ -32,6 +32,18 @@ func NewInMemoryQuizRepository() *InMemoryRepository[domain.QuizID, domain.Quiz]
 	}
 }
 
+var _ application.ChallengeRepository = (*InMemoryRepository[domain.ChallengeID, domain.Challenge])(nil)
+
+func NewInMemoryChallengeRepository() *InMemoryRepository[domain.ChallengeID, domain.Challenge] {
+	return &InMemoryRepository[domain.ChallengeID, domain.Challenge]{
+		cache: make(map[domain.ChallengeID]domain.Challenge),
+		mx:    sync.RWMutex{},
+		id: func(challenge domain.Challenge) domain.ChallengeID {
+			return challenge.ID()
+		},
+	}
+}
+
 type InMemoryRepository[K comparable, V any] struct {
 	mx    sync.RWMutex
 	cache map[K]V
