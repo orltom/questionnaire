@@ -7,17 +7,20 @@ silent: false
 tasks:
   default:
     desc: build back-end application
-    deps: [build]
+    deps: [check, build]
 
   generate:
-    desc: generate server stubs from ../api/openapi.yaml
+    desc: generate server stubs and mocks
     cmds:
       - go generate ./...
     sources:
       - ../api/openapi.yaml
       - api/oapi-codegen.yaml
+      - internal/quiz/application/*.go
+      - internal/quiz/application/mock/generate.go
     generates:
       - api/server.gen.go
+      - internal/quiz/application/mock/application.gen.go
 
   lint:
     desc: run golangci-lint
@@ -35,13 +38,18 @@ tasks:
     cmds:
       - go mod verify
 
+  test:
+    desc: run unit tests
+    cmds:
+      - go test ./...
+
   check:
     desc: tidy, verify, lint and build
     cmds:
       - task: tidy
       - task: verify
       - task: lint
-      - task: build
+      - task: test
 
   build:
     desc: build back-end application
