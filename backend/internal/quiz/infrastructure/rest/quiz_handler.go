@@ -1,18 +1,25 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"uuid"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
-	"gitlab.com/orltom/questionnaire/backend/internal/quiz/application"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
 )
 
+type quizService interface {
+	Create(ctx context.Context, title, description string) (domain.Quiz, error)
+	Get(ctx context.Context, id domain.QuizID) (domain.Quiz, error)
+	Update(ctx context.Context, id domain.QuizID, title, description string, visibility domain.Visibility) error
+	Delete(ctx context.Context, id domain.QuizID) error
+}
+
 type quizHandler struct {
-	service *application.QuizService
+	service quizService
 }
 
 func (h quizHandler) CreateQuiz(w http.ResponseWriter, r *http.Request) {

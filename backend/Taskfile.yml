@@ -13,14 +13,6 @@ tasks:
     desc: generate server stubs and mocks
     cmds:
       - go generate ./...
-    sources:
-      - ../api/openapi.yaml
-      - api/oapi-codegen.yaml
-      - internal/quiz/application/*.go
-      - internal/quiz/application/mock/generate.go
-    generates:
-      - api/server.gen.go
-      - internal/quiz/application/mock/application.gen.go
 
   lint:
     desc: run golangci-lint

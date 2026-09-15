@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,8 +12,15 @@ import (
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
 )
 
+type questionService interface {
+	Create(ctx context.Context, req application.QuestionRequest) (domain.Question, error)
+	Get(ctx context.Context, id domain.QuestionID) (domain.Question, error)
+	Update(ctx context.Context, id domain.QuestionID, req application.QuestionRequest) error
+	Delete(ctx context.Context, id domain.QuestionID) error
+}
+
 type questionHandler struct {
-	service *application.QuestionService
+	service questionService
 }
 
 func (h questionHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) {

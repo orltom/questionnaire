@@ -1,18 +1,25 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"uuid"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
-	"gitlab.com/orltom/questionnaire/backend/internal/quiz/application"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
 )
 
+type catalogService interface {
+	Create(ctx context.Context, title, description string) (domain.Catalog, error)
+	Get(ctx context.Context, id domain.CatalogID) (domain.Catalog, error)
+	Update(ctx context.Context, id domain.CatalogID, title, description string) error
+	Delete(ctx context.Context, id domain.CatalogID) error
+}
+
 type catalogHandler struct {
-	service *application.CatalogService
+	service catalogService
 }
 
 func (h catalogHandler) CreateCatalog(w http.ResponseWriter, r *http.Request) {
