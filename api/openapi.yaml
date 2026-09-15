@@ -3,7 +3,7 @@ openapi: 3.1.0
 info:
   title: Questionnaire API
   version: 0.1.0
-  description: API for managing quizzes and questions.
+  description: API for managing quizzes, questions and challenges.
 
 servers:
   - url: /api/v1
@@ -41,6 +41,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quiz"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -56,6 +58,8 @@ paths:
       responses:
         "204":
           description: Quiz updated
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -65,6 +69,117 @@ paths:
       responses:
         "204":
           description: Quiz deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /challenges:
+    post:
+      summary: Create challenge
+      operationId: createChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChallenge"
+      responses:
+        "201":
+          description: Challenge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Challenge"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /challenges/{challengeId}:
+    parameters:
+      - $ref: "#/components/parameters/ChallengeId"
+
+    get:
+      summary: Get challenge
+      operationId: getChallenge
+      responses:
+        "200":
+          description: Challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Challenge"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete challenge
+      operationId: deleteChallenge
+      responses:
+        "204":
+          description: Challenge deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /challenges/{challengeId}/close:
+    parameters:
+      - $ref: "#/components/parameters/ChallengeId"
+
+    post:
+      summary: Close challenge
+      operationId: closeChallenge
+      responses:
+        "204":
+          description: Challenge closed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /challenges/{challengeId}/answers:
+    parameters:
+      - $ref: "#/components/parameters/ChallengeId"
+
+    post:
+      summary: Submit an answer
+      operationId: submitAnswer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAnswer"
+      responses:
+        "204":
+          description: Answer recorded
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /challenges/{challengeId}/results:
+    parameters:
+      - $ref: "#/components/parameters/ChallengeId"
+
+    get:
+      summary: Get challenge results
+      operationId: getChallengeResults
+      responses:
+        "200":
+          description: Results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Result"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -100,6 +215,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Question"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -115,6 +232,8 @@ paths:
       responses:
         "204":
           description: Question updated
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -124,6 +243,8 @@ paths:
       responses:
         "204":
           description: Question deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -131,6 +252,14 @@ components:
   parameters:
     QuizId:
       name: quizId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ChallengeId:
+      name: challengeId
       in: path
       required: true
       schema:
@@ -148,6 +277,9 @@ components:
   responses:
     NotFound:
       description: Resource not found
+
+    Forbidden:
+      description: Not allowed to access the resource
 
   schemas:
     Visibility:
@@ -173,12 +305,16 @@ components:
       type: object
       required:
         - id
+        - owner
         - title
         - description
         - visibility
         - questions
       properties:
         id:
+          type: string
+          format: uuid
+        owner:
           type: string
           format: uuid
         title:
@@ -231,27 +367,41 @@ components:
           items:
             $ref: "#/components/schemas/QuizQuestion"
 
-    Answer:
+    Access:
+      type: string
+      enum:
+        - public
+        - invited
+
+    ChallengeState:
+      type: string
+      enum:
+        - scheduled
+        - running
+        - finished
+
+    ChallengeAnswer:
       type: object
       required:
+        - id
         - description
         - position
-        - count
       properties:
+        id:
+          type: string
+          format: uuid
         description:
           type: string
         position:
           type: integer
           minimum: 0
-        count:
-          type: integer
-          minimum: 0
 
-    Question:
+    ChallengeQuestion:
       type: object
       required:
         - id
         - description
+        - position
         - answers
       properties:
         id:
@@ -259,6 +409,159 @@ components:
           format: uuid
         description:
           type: string
+        position:
+          type: integer
+          minimum: 0
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeAnswer"
+
+    ChallengeQuiz:
+      type: object
+      required:
+        - quizId
+        - title
+        - questions
+      properties:
+        quizId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeQuestion"
+
+    Challenge:
+      type: object
+      required:
+        - id
+        - owner
+        - quiz
+        - startsAt
+        - access
+        - invitees
+        - state
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner:
+          type: string
+          format: uuid
+        quiz:
+          $ref: "#/components/schemas/ChallengeQuiz"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+        access:
+          $ref: "#/components/schemas/Access"
+        invitees:
+          type: array
+          items:
+            type: string
+            format: uuid
+        state:
+          $ref: "#/components/schemas/ChallengeState"
+
+    CreateChallenge:
+      type: object
+      required:
+        - quizId
+        - startsAt
+        - access
+      properties:
+        quizId:
+          type: string
+          format: uuid
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        access:
+          $ref: "#/components/schemas/Access"
+        invitees:
+          type: array
+          default: []
+          items:
+            type: string
+            format: uuid
+
+    SubmitAnswer:
+      type: object
+      required:
+        - questionId
+        - answerId
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        answerId:
+          type: string
+          format: uuid
+
+    Result:
+      type: object
+      required:
+        - userId
+        - points
+      properties:
+        userId:
+          type: string
+          format: uuid
+        points:
+          type: integer
+          minimum: 0
+
+    Answer:
+      type: object
+      required:
+        - description
+        - position
+        - correct
+      properties:
+        description:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+        correct:
+          type: boolean
+
+    Question:
+      type: object
+      required:
+        - id
+        - owner
+        - description
+        - visibility
+        - labels
+        - answers
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner:
+          type: string
+          format: uuid
+        description:
+          type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        labels:
+          type: array
+          items:
+            type: string
         answers:
           type: array
           minItems: 0
@@ -269,10 +572,18 @@ components:
       type: object
       required:
         - description
+        - visibility
         - answers
       properties:
         description:
           type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        labels:
+          type: array
+          default: []
+          items:
+            type: string
         answers:
           type: array
           minItems: 0
@@ -283,10 +594,18 @@ components:
       type: object
       required:
         - description
+        - visibility
         - answers
       properties:
         description:
           type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        labels:
+          type: array
+          default: []
+          items:
+            type: string
         answers:
           type: array
           minItems: 0
