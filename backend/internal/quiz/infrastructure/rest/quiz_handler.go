@@ -12,10 +12,10 @@ import (
 )
 
 type quizService interface {
-	Create(ctx context.Context, title, description string) (domain.Quiz, error)
-	Get(ctx context.Context, id domain.QuizID) (domain.Quiz, error)
-	Update(ctx context.Context, id domain.QuizID, title, description string, visibility domain.Visibility) error
-	Delete(ctx context.Context, id domain.QuizID) error
+	Create(ctx context.Context, actor domain.UserID, title, description string, visibility domain.Visibility) (domain.Quiz, error)
+	Get(ctx context.Context, actor domain.UserID, id domain.QuizID) (domain.Quiz, error)
+	Update(ctx context.Context, actor domain.UserID, id domain.QuizID, title, description string, visibility domain.Visibility) error
+	Delete(ctx context.Context, actor domain.UserID, id domain.QuizID) error
 }
 
 type quizHandler struct {
@@ -25,9 +25,16 @@ type quizHandler struct {
 func (h quizHandler) CreateQuiz(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
 	var req api.CreateQuiz
 
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to decode request body", "error", err)
 		http.Error(w, "malformed request body", http.StatusBadRequest)
@@ -35,7 +42,7 @@ func (h quizHandler) CreateQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.Create(ctx, req.Title, req.Description)
+	resp, err := h.service.Create(ctx, actor, req.Title, req.Description, domain.Visibility(req.Visibility))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to create quiz", "error", err)
 		status, msg := httpError(err)
@@ -57,7 +64,14 @@ func (h quizHandler) CreateQuiz(w http.ResponseWriter, r *http.Request) {
 func (h quizHandler) GetQuiz(w http.ResponseWriter, r *http.Request, quizID api.QuizId) {
 	ctx := r.Context()
 
-	quiz, err := h.service.Get(ctx, domain.QuizID(quizID))
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
+	quiz, err := h.service.Get(ctx, actor, domain.QuizID(quizID))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to load quiz", "error", err)
 		status, msg := httpError(err)
@@ -79,9 +93,16 @@ func (h quizHandler) GetQuiz(w http.ResponseWriter, r *http.Request, quizID api.
 func (h quizHandler) UpdateQuiz(w http.ResponseWriter, r *http.Request, quizID api.QuizId) {
 	ctx := r.Context()
 
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
 	var req api.UpdateQuiz
 
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to decode request body", "error", err)
 		http.Error(w, "malformed request body", http.StatusBadRequest)
@@ -89,7 +110,7 @@ func (h quizHandler) UpdateQuiz(w http.ResponseWriter, r *http.Request, quizID a
 		return
 	}
 
-	err = h.service.Update(ctx, domain.QuizID(quizID), req.Title, req.Description, domain.Visibility(req.Visibility))
+	err = h.service.Update(ctx, actor, domain.QuizID(quizID), req.Title, req.Description, domain.Visibility(req.Visibility))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to update quiz", "error", err)
 		status, msg := httpError(err)
@@ -104,7 +125,14 @@ func (h quizHandler) UpdateQuiz(w http.ResponseWriter, r *http.Request, quizID a
 func (h quizHandler) DeleteQuiz(w http.ResponseWriter, r *http.Request, quizID api.QuizId) {
 	ctx := r.Context()
 
-	err := h.service.Delete(ctx, domain.QuizID(quizID))
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
+	err = h.service.Delete(ctx, actor, domain.QuizID(quizID))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to delete quiz", "error", err)
 		status, msg := httpError(err)
@@ -114,6 +142,11 @@ func (h quizHandler) DeleteQuiz(w http.ResponseWriter, r *http.Request, quizID a
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func unauthorized(ctx context.Context, w http.ResponseWriter, err error) {
+	slog.ErrorContext(ctx, "failed to resolve the authenticated user", "error", err)
+	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 }
 
 func toAPIQuiz(resp domain.Quiz) api.Quiz {
@@ -127,6 +160,7 @@ func toAPIQuiz(resp domain.Quiz) api.Quiz {
 
 	return api.Quiz{
 		Id:          uuid.UUID(resp.ID()),
+		Owner:       uuid.UUID(resp.Owner()),
 		Title:       resp.Title(),
 		Description: resp.Description(),
 		Visibility:  api.Visibility(resp.Visibility()),

@@ -29,10 +29,14 @@ func main() {
 	// initialize business components...
 	questionRepository := database.NewInMemoryQuestionRepository()
 	quizRepository := database.NewInMemoryQuizRepository()
+	challengeRepository := database.NewInMemoryChallengeRepository()
+	participationRepository := database.NewInMemoryParticipationRepository()
 
 	questionSvc := application.NewQuestionService(questionRepository)
 	quizSvc := application.NewQuizService(quizRepository, questionRepository)
-	server := rest.NewHTTPServer(questionSvc, quizSvc)
+	challengeSvc := application.NewChallengeService(challengeRepository, quizRepository, questionRepository)
+	participationSvc := application.NewParticipationService(participationRepository, challengeRepository)
+	server := rest.NewHTTPServer(questionSvc, quizSvc, challengeSvc, participationSvc)
 
 	// start HTTP Server ...
 	mux := http.NewServeMux()

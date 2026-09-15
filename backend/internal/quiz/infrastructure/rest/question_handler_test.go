@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,21 +9,32 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"uuid"
 
 	"go.uber.org/mock/gomock"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
+	"gitlab.com/orltom/questionnaire/backend/internal/identity"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/application"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
 )
 
 func TestQuestionHandler_CreateQuestion(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?")
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquestionService)
 	}
 	type args struct {
+		ctx  func(t *testing.T) context.Context
 		body string
 	}
 	tests := []struct {
@@ -36,23 +48,40 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 			name: "When the request is valid, then create the question and return it",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Create(gomock.Any(), application.QuestionRequest{
+					s.EXPECT().Create(gomock.Any(), actor, application.QuestionRequest{
 						Description: "What is the largest animal?",
+						Visibility:  domain.Public,
+						Labels:      []domain.Label{"animals"},
 						Answer: []application.AnswerRequest{
-							{Description: "Blue whale", Position: 1, Count: 0},
+							{Description: "Blue whale", Position: 1, Correct: true},
 						},
 					}).Return(defaultQuestion, nil)
 				},
 			},
 			args: args{
-				body: `{"description":"What is the largest animal?","answers":[{"description":"Blue whale","position":1,"count":0}]}`,
+				ctx:  actorContext,
+				body: `{"description":"What is the largest animal?","visibility":"public","labels":["animals"],"answers":[{"description":"Blue whale","position":1,"correct":true}]}`,
 			},
 			wantStatus: http.StatusCreated,
 			want: &api.Question{
 				Id:          api.QuestionId(defaultQuestion.ID()),
+				Owner:       uuid.UUID(actor),
 				Description: "What is the largest animal?",
+				Visibility:  api.Visibility(domain.Public),
+				Labels:      []string{},
 				Answers:     []api.Answer{},
 			},
+		},
+		{
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquestionService) {},
+			},
+			args: args{
+				ctx:  func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				body: `{"description":"What is the largest animal?","visibility":"public","answers":[]}`,
+			},
+			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name: "When the request body is malformed, then return bad request",
@@ -60,6 +89,7 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 				service: func(s *MockquestionService) {},
 			},
 			args: args{
+				ctx:  actorContext,
 				body: `{"description":`,
 			},
 			wantStatus: http.StatusBadRequest,
@@ -68,11 +98,12 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 			name: "When the question is invalid, then return bad request",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Create(gomock.Any(), gomock.Any()).Return(domain.Question{}, application.ErrInvalidArguments)
+					s.EXPECT().Create(gomock.Any(), actor, gomock.Any()).Return(domain.Question{}, application.ErrInvalidArguments)
 				},
 			},
 			args: args{
-				body: `{"description":"","answers":[]}`,
+				ctx:  actorContext,
+				body: `{"description":"","visibility":"public","answers":[]}`,
 			},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -80,11 +111,12 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Create(gomock.Any(), gomock.Any()).Return(domain.Question{}, errors.New("database is down"))
+					s.EXPECT().Create(gomock.Any(), actor, gomock.Any()).Return(domain.Question{}, errors.New("database is down"))
 				},
 			},
 			args: args{
-				body: `{"description":"What is the largest animal?","answers":[]}`,
+				ctx:  actorContext,
+				body: `{"description":"What is the largest animal?","visibility":"public","answers":[]}`,
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -97,7 +129,7 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 
 			h := questionHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/questions", strings.NewReader(tt.args.body))
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodPost, "/questions", strings.NewReader(tt.args.body))
 
 			h.CreateQuestion(rec, req)
 
@@ -120,12 +152,21 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 }
 
 func TestQuestionHandler_GetQuestion(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?")
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquestionService)
 	}
 	type args struct {
+		ctx        func(t *testing.T) context.Context
 		questionID api.QuestionId
 	}
 	tests := []struct {
@@ -139,27 +180,56 @@ func TestQuestionHandler_GetQuestion(t *testing.T) {
 			name: "When the question exists, then return it",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Get(gomock.Any(), defaultQuestion.ID()).Return(defaultQuestion, nil)
+					s.EXPECT().Get(gomock.Any(), actor, defaultQuestion.ID()).Return(defaultQuestion, nil)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 			},
 			wantStatus: http.StatusOK,
 			want: &api.Question{
 				Id:          api.QuestionId(defaultQuestion.ID()),
+				Owner:       uuid.UUID(actor),
 				Description: "What is the largest animal?",
+				Visibility:  api.Visibility(domain.Public),
+				Labels:      []string{},
 				Answers:     []api.Answer{},
 			},
+		},
+		{
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquestionService) {},
+			},
+			args: args{
+				ctx:        func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				questionID: api.QuestionId(defaultQuestion.ID()),
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "When the user is not allowed to view the question, then return forbidden",
+			fields: fields{
+				service: func(s *MockquestionService) {
+					s.EXPECT().Get(gomock.Any(), actor, gomock.Any()).Return(domain.Question{}, application.ErrForbidden)
+				},
+			},
+			args: args{
+				ctx:        actorContext,
+				questionID: api.QuestionId(defaultQuestion.ID()),
+			},
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "When the question does not exist, then return not found",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Get(gomock.Any(), gomock.Any()).Return(domain.Question{}, application.ErrEntityNotFound)
+					s.EXPECT().Get(gomock.Any(), actor, gomock.Any()).Return(domain.Question{}, application.ErrEntityNotFound)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 			},
 			wantStatus: http.StatusNotFound,
@@ -168,10 +238,11 @@ func TestQuestionHandler_GetQuestion(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Get(gomock.Any(), gomock.Any()).Return(domain.Question{}, errors.New("database is down"))
+					s.EXPECT().Get(gomock.Any(), actor, gomock.Any()).Return(domain.Question{}, errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -185,7 +256,7 @@ func TestQuestionHandler_GetQuestion(t *testing.T) {
 
 			h := questionHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/questions/"+tt.args.questionID.String(), nil)
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodGet, "/questions/"+tt.args.questionID.String(), nil)
 
 			h.GetQuestion(rec, req, tt.args.questionID)
 
@@ -208,12 +279,21 @@ func TestQuestionHandler_GetQuestion(t *testing.T) {
 }
 
 func TestQuestionHandler_UpdateQuestion(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?")
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquestionService)
 	}
 	type args struct {
+		ctx        func(t *testing.T) context.Context
 		questionID api.QuestionId
 		body       string
 	}
@@ -227,19 +307,34 @@ func TestQuestionHandler_UpdateQuestion(t *testing.T) {
 			name: "When the request is valid, then update the question",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Update(gomock.Any(), defaultQuestion.ID(), application.QuestionRequest{
+					s.EXPECT().Update(gomock.Any(), actor, defaultQuestion.ID(), application.QuestionRequest{
 						Description: "What is the fastest animal?",
+						Visibility:  domain.Private,
+						Labels:      []domain.Label{},
 						Answer: []application.AnswerRequest{
-							{Description: "Peregrine falcon", Position: 1, Count: 0},
+							{Description: "Peregrine falcon", Position: 1, Correct: true},
 						},
 					}).Return(nil)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
-				body:       `{"description":"What is the fastest animal?","answers":[{"description":"Peregrine falcon","position":1,"count":0}]}`,
+				body:       `{"description":"What is the fastest animal?","visibility":"private","answers":[{"description":"Peregrine falcon","position":1,"correct":true}]}`,
 			},
 			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquestionService) {},
+			},
+			args: args{
+				ctx:        func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				questionID: api.QuestionId(defaultQuestion.ID()),
+				body:       `{"description":"What is the fastest animal?","visibility":"private","answers":[]}`,
+			},
+			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name: "When the request body is malformed, then return bad request",
@@ -247,34 +342,37 @@ func TestQuestionHandler_UpdateQuestion(t *testing.T) {
 				service: func(s *MockquestionService) {},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 				body:       `{"description":`,
 			},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "When the question is invalid, then return bad request",
+			name: "When the user is not allowed to edit the question, then return forbidden",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(application.ErrInvalidArguments)
+					s.EXPECT().Update(gomock.Any(), actor, gomock.Any(), gomock.Any()).Return(application.ErrForbidden)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
-				body:       `{"description":"","answers":[]}`,
+				body:       `{"description":"What is the fastest animal?","visibility":"public","answers":[]}`,
 			},
-			wantStatus: http.StatusBadRequest,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "When the question does not exist, then return not found",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(application.ErrEntityNotFound)
+					s.EXPECT().Update(gomock.Any(), actor, gomock.Any(), gomock.Any()).Return(application.ErrEntityNotFound)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
-				body:       `{"description":"What is the fastest animal?","answers":[]}`,
+				body:       `{"description":"What is the fastest animal?","visibility":"public","answers":[]}`,
 			},
 			wantStatus: http.StatusNotFound,
 		},
@@ -282,12 +380,13 @@ func TestQuestionHandler_UpdateQuestion(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
+					s.EXPECT().Update(gomock.Any(), actor, gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
-				body:       `{"description":"What is the fastest animal?","answers":[]}`,
+				body:       `{"description":"What is the fastest animal?","visibility":"public","answers":[]}`,
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -300,7 +399,7 @@ func TestQuestionHandler_UpdateQuestion(t *testing.T) {
 
 			h := questionHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/questions/"+tt.args.questionID.String(), strings.NewReader(tt.args.body))
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodPut, "/questions/"+tt.args.questionID.String(), strings.NewReader(tt.args.body))
 
 			h.UpdateQuestion(rec, req, tt.args.questionID)
 
@@ -312,12 +411,21 @@ func TestQuestionHandler_UpdateQuestion(t *testing.T) {
 }
 
 func TestQuestionHandler_DeleteQuestion(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?")
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuestion, _ := domain.NewQuestion("What is the largest animal?", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquestionService)
 	}
 	type args struct {
+		ctx        func(t *testing.T) context.Context
 		questionID api.QuestionId
 	}
 	tests := []struct {
@@ -330,22 +438,48 @@ func TestQuestionHandler_DeleteQuestion(t *testing.T) {
 			name: "When the question exists, then delete it",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Delete(gomock.Any(), defaultQuestion.ID()).Return(nil)
+					s.EXPECT().Delete(gomock.Any(), actor, defaultQuestion.ID()).Return(nil)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 			},
 			wantStatus: http.StatusNoContent,
 		},
 		{
-			name: "When the question does not exist, then return not found",
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquestionService) {},
+			},
+			args: args{
+				ctx:        func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				questionID: api.QuestionId(defaultQuestion.ID()),
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "When the user is not allowed to delete the question, then return forbidden",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(application.ErrEntityNotFound)
+					s.EXPECT().Delete(gomock.Any(), actor, gomock.Any()).Return(application.ErrForbidden)
 				},
 			},
 			args: args{
+				ctx:        actorContext,
+				questionID: api.QuestionId(defaultQuestion.ID()),
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "When the question does not exist, then return not found",
+			fields: fields{
+				service: func(s *MockquestionService) {
+					s.EXPECT().Delete(gomock.Any(), actor, gomock.Any()).Return(application.ErrEntityNotFound)
+				},
+			},
+			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 			},
 			wantStatus: http.StatusNotFound,
@@ -354,10 +488,11 @@ func TestQuestionHandler_DeleteQuestion(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquestionService) {
-					s.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
+					s.EXPECT().Delete(gomock.Any(), actor, gomock.Any()).Return(errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:        actorContext,
 				questionID: api.QuestionId(defaultQuestion.ID()),
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -371,7 +506,7 @@ func TestQuestionHandler_DeleteQuestion(t *testing.T) {
 
 			h := questionHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/questions/"+tt.args.questionID.String(), nil)
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodDelete, "/questions/"+tt.args.questionID.String(), nil)
 
 			h.DeleteQuestion(rec, req, tt.args.questionID)
 

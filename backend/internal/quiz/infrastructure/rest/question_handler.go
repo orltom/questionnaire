@@ -13,10 +13,10 @@ import (
 )
 
 type questionService interface {
-	Create(ctx context.Context, req application.QuestionRequest) (domain.Question, error)
-	Get(ctx context.Context, id domain.QuestionID) (domain.Question, error)
-	Update(ctx context.Context, id domain.QuestionID, req application.QuestionRequest) error
-	Delete(ctx context.Context, id domain.QuestionID) error
+	Create(ctx context.Context, actor domain.UserID, req application.QuestionRequest) (domain.Question, error)
+	Get(ctx context.Context, actor domain.UserID, id domain.QuestionID) (domain.Question, error)
+	Update(ctx context.Context, actor domain.UserID, id domain.QuestionID, req application.QuestionRequest) error
+	Delete(ctx context.Context, actor domain.UserID, id domain.QuestionID) error
 }
 
 type questionHandler struct {
@@ -26,9 +26,16 @@ type questionHandler struct {
 func (h questionHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
 	var dto api.CreateQuestion
 
-	err := json.NewDecoder(r.Body).Decode(&dto)
+	err = json.NewDecoder(r.Body).Decode(&dto)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to decode request body", "error", err)
 		http.Error(w, "malformed request body", http.StatusBadRequest)
@@ -36,21 +43,7 @@ func (h questionHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	answers := make([]application.AnswerRequest, len(dto.Answers))
-	for i, a := range dto.Answers {
-		answers[i] = application.AnswerRequest{
-			Description: a.Description,
-			Position:    a.Position,
-			Count:       a.Count,
-		}
-	}
-
-	reqCreate := application.QuestionRequest{
-		Description: dto.Description,
-		Answer:      answers,
-	}
-
-	q, err := h.service.Create(ctx, reqCreate)
+	q, err := h.service.Create(ctx, actor, toQuestionRequest(dto.Description, dto.Visibility, dto.Labels, dto.Answers))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to create question", "error", err)
 		status, msg := httpError(err)
@@ -72,7 +65,14 @@ func (h questionHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) 
 func (h questionHandler) GetQuestion(w http.ResponseWriter, r *http.Request, questionID api.QuestionId) {
 	ctx := r.Context()
 
-	question, err := h.service.Get(ctx, domain.QuestionID(questionID))
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
+	question, err := h.service.Get(ctx, actor, domain.QuestionID(questionID))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to load question", "error", err)
 		status, msg := httpError(err)
@@ -94,9 +94,16 @@ func (h questionHandler) GetQuestion(w http.ResponseWriter, r *http.Request, que
 func (h questionHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request, questionID api.QuestionId) {
 	ctx := r.Context()
 
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
 	var dto api.UpdateQuestion
 
-	err := json.NewDecoder(r.Body).Decode(&dto)
+	err = json.NewDecoder(r.Body).Decode(&dto)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to decode request body", "error", err)
 		http.Error(w, "malformed request body", http.StatusBadRequest)
@@ -104,21 +111,9 @@ func (h questionHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	answers := make([]application.AnswerRequest, len(dto.Answers))
-	for i, a := range dto.Answers {
-		answers[i] = application.AnswerRequest{
-			Description: a.Description,
-			Position:    a.Position,
-			Count:       a.Count,
-		}
-	}
+	req := toQuestionRequest(dto.Description, dto.Visibility, dto.Labels, dto.Answers)
 
-	reqUpdate := application.QuestionRequest{
-		Description: dto.Description,
-		Answer:      answers,
-	}
-
-	err = h.service.Update(ctx, domain.QuestionID(questionID), reqUpdate)
+	err = h.service.Update(ctx, actor, domain.QuestionID(questionID), req)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to update question", "error", err)
 		status, msg := httpError(err)
@@ -133,7 +128,14 @@ func (h questionHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request, 
 func (h questionHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request, questionID api.QuestionId) {
 	ctx := r.Context()
 
-	err := h.service.Delete(ctx, domain.QuestionID(questionID))
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
+	err = h.service.Delete(ctx, actor, domain.QuestionID(questionID))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to delete question", "error", err)
 		status, msg := httpError(err)
@@ -145,19 +147,53 @@ func (h questionHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func toQuestionRequest(description string, visibility api.Visibility, labels *[]string, answers []api.Answer) application.QuestionRequest {
+	req := application.QuestionRequest{
+		Description: description,
+		Visibility:  domain.Visibility(visibility),
+		Labels:      []domain.Label{},
+		Answer:      make([]application.AnswerRequest, len(answers)),
+	}
+
+	if labels != nil {
+		req.Labels = make([]domain.Label, len(*labels))
+		for i, l := range *labels {
+			req.Labels[i] = domain.Label(l)
+		}
+	}
+
+	for i, a := range answers {
+		req.Answer[i] = application.AnswerRequest{
+			Description: a.Description,
+			Position:    a.Position,
+			Correct:     a.Correct,
+		}
+	}
+
+	return req
+}
+
 func toAPIQuestion(q domain.Question) api.Question {
 	answers := make([]api.Answer, len(q.Answers()))
 	for i, a := range q.Answers() {
 		answers[i] = api.Answer{
 			Description: a.Description(),
-			Count:       a.Count(),
 			Position:    a.Position(),
+			Correct:     a.Correct(),
 		}
+	}
+
+	labels := make([]string, len(q.Labels()))
+	for i, l := range q.Labels() {
+		labels[i] = string(l)
 	}
 
 	return api.Question{
 		Id:          uuid.UUID(q.ID()),
+		Owner:       uuid.UUID(q.Owner()),
 		Description: q.Description(),
+		Visibility:  api.Visibility(q.Visibility()),
+		Labels:      labels,
 		Answers:     answers,
 	}
 }

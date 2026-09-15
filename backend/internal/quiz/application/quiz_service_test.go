@@ -14,7 +14,8 @@ import (
 )
 
 func TestQuizService_Create(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", domain.Private)
+	actor := domain.UserID(uuid.NewV7())
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", actor, domain.Private)
 
 	type mocks struct {
 		repository func(r *MockQuizRepository)
@@ -79,7 +80,7 @@ func TestQuizService_Create(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuizService{repository: repo, lookupService: nil}
-			got, err := s.Create(context.Background(), tt.args.title, tt.args.description)
+			got, err := s.Create(context.Background(), actor, tt.args.title, tt.args.description, domain.Private)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Create() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -94,7 +95,8 @@ func TestQuizService_Create(t *testing.T) {
 }
 
 func TestQuizService_Get(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", domain.Private)
+	actor := domain.UserID(uuid.NewV7())
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", actor, domain.Private)
 
 	type mocks struct {
 		repository func(r *MockQuizRepository)
@@ -155,7 +157,7 @@ func TestQuizService_Get(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuizService{repository: repo, lookupService: nil}
-			got, err := s.Get(context.Background(), tt.args.id)
+			got, err := s.Get(context.Background(), actor, tt.args.id)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -170,7 +172,8 @@ func TestQuizService_Get(t *testing.T) {
 }
 
 func TestQuizService_Update(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", domain.Private)
+	actor := domain.UserID(uuid.NewV7())
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", actor, domain.Private)
 
 	type mocks struct {
 		repository func(r *MockQuizRepository)
@@ -271,7 +274,7 @@ func TestQuizService_Update(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuizService{repository: repo, lookupService: nil}
-			err := s.Update(context.Background(), tt.args.id, tt.args.title, tt.args.description, tt.args.visibility)
+			err := s.Update(context.Background(), actor, tt.args.id, tt.args.title, tt.args.description, tt.args.visibility)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Update() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -280,7 +283,9 @@ func TestQuizService_Update(t *testing.T) {
 }
 
 func TestQuizService_Delete(t *testing.T) {
+	actor := domain.UserID(uuid.NewV7())
 	id := domain.QuizID(uuid.Nil())
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Quiz about animals", actor, domain.Private)
 
 	type mocks struct {
 		repository func(r *MockQuizRepository)
@@ -298,6 +303,7 @@ func TestQuizService_Delete(t *testing.T) {
 			name: "When the quiz exists, then delete it",
 			mocks: mocks{
 				repository: func(r *MockQuizRepository) {
+					r.EXPECT().Find(gomock.Any(), id).Return(defaultQuiz, nil)
 					r.EXPECT().Delete(gomock.Any(), id).Return(nil)
 				},
 			},
@@ -311,7 +317,7 @@ func TestQuizService_Delete(t *testing.T) {
 			name: "When the quiz ID is unknown, then return an entity not found error",
 			mocks: mocks{
 				repository: func(r *MockQuizRepository) {
-					r.EXPECT().Delete(gomock.Any(), id).Return(ErrEntityNotFound)
+					r.EXPECT().Find(gomock.Any(), id).Return(domain.Quiz{}, ErrEntityNotFound)
 				},
 			},
 			args: args{
@@ -323,6 +329,7 @@ func TestQuizService_Delete(t *testing.T) {
 			name: "When the repository fails, then return a persistence error",
 			mocks: mocks{
 				repository: func(r *MockQuizRepository) {
+					r.EXPECT().Find(gomock.Any(), id).Return(defaultQuiz, nil)
 					r.EXPECT().Delete(gomock.Any(), id).Return(errors.New("database is down"))
 				},
 			},
@@ -339,7 +346,7 @@ func TestQuizService_Delete(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuizService{repository: repo, lookupService: nil}
-			err := s.Delete(context.Background(), tt.args.id)
+			err := s.Delete(context.Background(), actor, tt.args.id)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}

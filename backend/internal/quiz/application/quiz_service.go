@@ -27,8 +27,14 @@ func NewQuizService(repository QuizRepository, lookupService QuestionLookupServi
 	}
 }
 
-func (s *QuizService) Create(ctx context.Context, title string, description string) (domain.Quiz, error) {
-	quiz, err := domain.NewQuiz(title, description, domain.Private)
+func (s *QuizService) Create(
+	ctx context.Context,
+	actor domain.UserID,
+	title string,
+	description string,
+	visibility domain.Visibility,
+) (domain.Quiz, error) {
+	quiz, err := domain.NewQuiz(title, description, actor, visibility)
 	if err != nil {
 		return quiz, fmt.Errorf("%w: create quiz: %w", ErrInvalidArguments, err)
 	}
@@ -41,7 +47,7 @@ func (s *QuizService) Create(ctx context.Context, title string, description stri
 	return quiz, nil
 }
 
-func (s *QuizService) Get(ctx context.Context, id domain.QuizID) (domain.Quiz, error) {
+func (s *QuizService) Get(ctx context.Context, actor domain.UserID, id domain.QuizID) (domain.Quiz, error) {
 	quiz, err := s.repository.Find(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrEntityNotFound) {
@@ -51,11 +57,16 @@ func (s *QuizService) Get(ctx context.Context, id domain.QuizID) (domain.Quiz, e
 		return quiz, fmt.Errorf("%w: load quiz: %w", ErrPersistence, err)
 	}
 
+	if !quiz.CanView(actor) {
+		return domain.Quiz{}, ErrForbidden
+	}
+
 	return quiz, nil
 }
 
 func (s *QuizService) Update(
 	ctx context.Context,
+	actor domain.UserID,
 	id domain.QuizID,
 	title string,
 	description string,
@@ -70,13 +81,21 @@ func (s *QuizService) Update(
 		return fmt.Errorf("%w: find quiz: %w", ErrPersistence, err)
 	}
 
+	if !quiz.CanEdit(actor) {
+		return ErrForbidden
+	}
+
 	err = quiz.Rename(title)
 	if err != nil {
 		return fmt.Errorf("%w: update quiz title: %w", ErrInvalidArguments, err)
 	}
 
 	quiz.ChangeDescription(description)
-	quiz.ChangeVisibility(visibility)
+
+	err = quiz.ChangeVisibility(visibility)
+	if err != nil {
+		return fmt.Errorf("%w: update quiz visibility: %w", ErrInvalidArguments, err)
+	}
 
 	err = s.repository.Update(ctx, quiz)
 	if err != nil {
@@ -86,8 +105,21 @@ func (s *QuizService) Update(
 	return nil
 }
 
-func (s *QuizService) Delete(ctx context.Context, id domain.QuizID) error {
-	err := s.repository.Delete(ctx, id)
+func (s *QuizService) Delete(ctx context.Context, actor domain.UserID, id domain.QuizID) error {
+	quiz, err := s.repository.Find(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrEntityNotFound) {
+			return ErrEntityNotFound
+		}
+
+		return fmt.Errorf("%w: load quiz: %w", ErrPersistence, err)
+	}
+
+	if !quiz.CanEdit(actor) {
+		return ErrForbidden
+	}
+
+	err = s.repository.Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrEntityNotFound) {
 			return ErrEntityNotFound
@@ -99,7 +131,13 @@ func (s *QuizService) Delete(ctx context.Context, id domain.QuizID) error {
 	return nil
 }
 
-func (s *QuizService) AddQuestion(ctx context.Context, id domain.QuizID, qID domain.QuestionID, pos int) error {
+func (s *QuizService) AddQuestion(
+	ctx context.Context,
+	actor domain.UserID,
+	id domain.QuizID,
+	qID domain.QuestionID,
+	pos int,
+) error {
 	ok, err := s.lookupService.Exists(ctx, qID)
 	if err != nil {
 		return fmt.Errorf("%w: lookup question: %w", ErrPersistence, err)
@@ -112,6 +150,10 @@ func (s *QuizService) AddQuestion(ctx context.Context, id domain.QuizID, qID dom
 	quiz, err := s.repository.Find(ctx, id)
 	if err != nil {
 		return fmt.Errorf("%w: could not find quiz with ID '%s': %w", ErrPersistence, id, err)
+	}
+
+	if !quiz.CanEdit(actor) {
+		return ErrForbidden
 	}
 
 	err = quiz.AddQuestion(qID, pos)

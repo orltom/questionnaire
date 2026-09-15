@@ -14,8 +14,9 @@ import (
 )
 
 func TestQuestionService_Create(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the capital of Switzerland?")
-	_ = defaultQuestion.AddAnswer("Bern", 0, 0)
+	actor := domain.UserID(uuid.NewV7())
+	defaultQuestion, _ := domain.NewQuestion("What is the capital of Switzerland?", actor, domain.Private)
+	_ = defaultQuestion.AddAnswer("Bern", 0, true)
 
 	type mocks struct {
 		repository func(r *MockQuestionRepository)
@@ -47,8 +48,9 @@ func TestQuestionService_Create(t *testing.T) {
 			args: args{
 				req: QuestionRequest{
 					Description: "What is the capital of Switzerland?",
+					Visibility:  domain.Private,
 					Answer: []AnswerRequest{
-						{Description: "Bern", Position: 0, Count: 0},
+						{Description: "Bern", Position: 0, Correct: true},
 					},
 				},
 			},
@@ -63,6 +65,7 @@ func TestQuestionService_Create(t *testing.T) {
 			args: args{
 				req: QuestionRequest{
 					Description: "",
+					Visibility:  domain.Private,
 					Answer:      nil,
 				},
 			},
@@ -76,8 +79,9 @@ func TestQuestionService_Create(t *testing.T) {
 			args: args{
 				req: QuestionRequest{
 					Description: "What is the capital of Switzerland?",
+					Visibility:  domain.Private,
 					Answer: []AnswerRequest{
-						{Description: "Bern", Position: -1, Count: 0},
+						{Description: "Bern", Position: -1, Correct: true},
 					},
 				},
 			},
@@ -93,6 +97,7 @@ func TestQuestionService_Create(t *testing.T) {
 			args: args{
 				req: QuestionRequest{
 					Description: "What is the capital of Switzerland?",
+					Visibility:  domain.Private,
 					Answer:      nil,
 				},
 			},
@@ -106,7 +111,7 @@ func TestQuestionService_Create(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuestionService{repository: repo}
-			got, err := s.Create(context.Background(), tt.args.req)
+			got, err := s.Create(context.Background(), actor, tt.args.req)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Create() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -118,6 +123,7 @@ func TestQuestionService_Create(t *testing.T) {
 				got,
 				cmp.AllowUnexported(domain.Question{}, domain.Answer{}),
 				cmpopts.IgnoreFields(domain.Question{}, "id"),
+				cmpopts.IgnoreFields(domain.Answer{}, "id"),
 			); diff != "" {
 				t.Errorf("Create() mismatch (-want +got):\n%s", diff)
 			}
@@ -126,7 +132,8 @@ func TestQuestionService_Create(t *testing.T) {
 }
 
 func TestQuestionService_Get(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the capital of Switzerland?")
+	actor := domain.UserID(uuid.NewV7())
+	defaultQuestion, _ := domain.NewQuestion("What is the capital of Switzerland?", actor, domain.Private)
 
 	type mocks struct {
 		repository func(r *MockQuestionRepository)
@@ -187,7 +194,7 @@ func TestQuestionService_Get(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuestionService{repository: repo}
-			got, err := s.Get(context.Background(), tt.args.id)
+			got, err := s.Get(context.Background(), actor, tt.args.id)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -202,8 +209,9 @@ func TestQuestionService_Get(t *testing.T) {
 }
 
 func TestQuestionService_Update(t *testing.T) {
-	defaultQuestion, _ := domain.NewQuestion("What is the capital of Germany?")
-	_ = defaultQuestion.AddAnswer("Munich", 0, 0)
+	actor := domain.UserID(uuid.NewV7())
+	defaultQuestion, _ := domain.NewQuestion("What is the capital of Germany?", actor, domain.Private)
+	_ = defaultQuestion.AddAnswer("Munich", 0, true)
 
 	type mocks struct {
 		repository func(r *MockQuestionRepository)
@@ -237,8 +245,9 @@ func TestQuestionService_Update(t *testing.T) {
 				id: defaultQuestion.ID(),
 				req: QuestionRequest{
 					Description: "What is the capital of Switzerland?",
+					Visibility:  domain.Private,
 					Answer: []AnswerRequest{
-						{Description: "Bern", Position: 0, Count: 0},
+						{Description: "Bern", Position: 0, Correct: true},
 					},
 				},
 			},
@@ -279,6 +288,7 @@ func TestQuestionService_Update(t *testing.T) {
 				id: defaultQuestion.ID(),
 				req: QuestionRequest{
 					Description: "",
+					Visibility:  domain.Private,
 					Answer:      nil,
 				},
 			},
@@ -295,8 +305,9 @@ func TestQuestionService_Update(t *testing.T) {
 				id: defaultQuestion.ID(),
 				req: QuestionRequest{
 					Description: "What is the capital of Switzerland?",
+					Visibility:  domain.Private,
 					Answer: []AnswerRequest{
-						{Description: "Bern", Position: -1, Count: 0},
+						{Description: "Bern", Position: -1, Correct: true},
 					},
 				},
 			},
@@ -314,6 +325,7 @@ func TestQuestionService_Update(t *testing.T) {
 				id: defaultQuestion.ID(),
 				req: QuestionRequest{
 					Description: "What is the capital of Switzerland?",
+					Visibility:  domain.Private,
 					Answer:      nil,
 				},
 			},
@@ -327,7 +339,7 @@ func TestQuestionService_Update(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuestionService{repository: repo}
-			err := s.Update(context.Background(), tt.args.id, tt.args.req)
+			err := s.Update(context.Background(), actor, tt.args.id, tt.args.req)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Update() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -336,7 +348,9 @@ func TestQuestionService_Update(t *testing.T) {
 }
 
 func TestQuestionService_Delete(t *testing.T) {
+	actor := domain.UserID(uuid.NewV7())
 	id := domain.QuestionID(uuid.Nil())
+	defaultQuestion, _ := domain.NewQuestion("What is the capital of Switzerland?", actor, domain.Private)
 
 	type mocks struct {
 		repository func(r *MockQuestionRepository)
@@ -354,6 +368,7 @@ func TestQuestionService_Delete(t *testing.T) {
 			name: "When the question exists, then delete it",
 			mocks: mocks{
 				repository: func(r *MockQuestionRepository) {
+					r.EXPECT().Find(gomock.Any(), id).Return(defaultQuestion, nil)
 					r.EXPECT().Delete(gomock.Any(), id).Return(nil)
 				},
 			},
@@ -367,7 +382,7 @@ func TestQuestionService_Delete(t *testing.T) {
 			name: "When the question ID is unknown, then return an entity not found error",
 			mocks: mocks{
 				repository: func(r *MockQuestionRepository) {
-					r.EXPECT().Delete(gomock.Any(), id).Return(ErrEntityNotFound)
+					r.EXPECT().Find(gomock.Any(), id).Return(domain.Question{}, ErrEntityNotFound)
 				},
 			},
 			args: args{
@@ -379,6 +394,7 @@ func TestQuestionService_Delete(t *testing.T) {
 			name: "When the repository fails, then return a persistence error",
 			mocks: mocks{
 				repository: func(r *MockQuestionRepository) {
+					r.EXPECT().Find(gomock.Any(), id).Return(defaultQuestion, nil)
 					r.EXPECT().Delete(gomock.Any(), id).Return(errors.New("database is down"))
 				},
 			},
@@ -395,7 +411,7 @@ func TestQuestionService_Delete(t *testing.T) {
 			tt.mocks.repository(repo)
 
 			s := &QuestionService{repository: repo}
-			err := s.Delete(context.Background(), tt.args.id)
+			err := s.Delete(context.Background(), actor, tt.args.id)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}

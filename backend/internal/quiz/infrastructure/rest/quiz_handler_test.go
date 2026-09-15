@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,21 +9,32 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"uuid"
 
 	"go.uber.org/mock/gomock"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
+	"gitlab.com/orltom/questionnaire/backend/internal/identity"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/application"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
 )
 
 func TestQuizHandler_CreateQuiz(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", domain.Public)
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquizService)
 	}
 	type args struct {
+		ctx  func(t *testing.T) context.Context
 		body string
 	}
 	tests := []struct {
@@ -36,15 +48,17 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 			name: "When the request is valid, then create the quiz and return it",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Create(gomock.Any(), "Animals", "Questions about animals").Return(defaultQuiz, nil)
+					s.EXPECT().Create(gomock.Any(), actor, "Animals", "Questions about animals", domain.Public).Return(defaultQuiz, nil)
 				},
 			},
 			args: args{
+				ctx:  actorContext,
 				body: `{"title":"Animals","description":"Questions about animals","visibility":"public"}`,
 			},
 			wantStatus: http.StatusCreated,
 			want: &api.Quiz{
 				Id:          api.QuizId(defaultQuiz.ID()),
+				Owner:       uuid.UUID(actor),
 				Title:       "Animals",
 				Description: "Questions about animals",
 				Visibility:  api.Visibility(domain.Public),
@@ -52,11 +66,23 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 			},
 		},
 		{
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquizService) {},
+			},
+			args: args{
+				ctx:  func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				body: `{"title":"Animals","description":"Questions about animals","visibility":"public"}`,
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
 			name: "When the request body is malformed, then return bad request",
 			fields: fields{
 				service: func(s *MockquizService) {},
 			},
 			args: args{
+				ctx:  actorContext,
 				body: `{"title":`,
 			},
 			wantStatus: http.StatusBadRequest,
@@ -65,10 +91,11 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 			name: "When the quiz is invalid, then return bad request",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(domain.Quiz{}, application.ErrInvalidArguments)
+					s.EXPECT().Create(gomock.Any(), actor, gomock.Any(), gomock.Any(), gomock.Any()).Return(domain.Quiz{}, application.ErrInvalidArguments)
 				},
 			},
 			args: args{
+				ctx:  actorContext,
 				body: `{"title":"","description":"","visibility":"public"}`,
 			},
 			wantStatus: http.StatusBadRequest,
@@ -77,10 +104,11 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(domain.Quiz{}, errors.New("database is down"))
+					s.EXPECT().Create(gomock.Any(), actor, gomock.Any(), gomock.Any(), gomock.Any()).Return(domain.Quiz{}, errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:  actorContext,
 				body: `{"title":"Animals","description":"Questions about animals","visibility":"public"}`,
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -94,7 +122,7 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 
 			h := quizHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/quizzes", strings.NewReader(tt.args.body))
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodPost, "/quizzes", strings.NewReader(tt.args.body))
 
 			h.CreateQuiz(rec, req)
 
@@ -117,12 +145,21 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 }
 
 func TestQuizHandler_GetQuiz(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", domain.Public)
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquizService)
 	}
 	type args struct {
+		ctx    func(t *testing.T) context.Context
 		quizID api.QuizId
 	}
 	tests := []struct {
@@ -136,15 +173,17 @@ func TestQuizHandler_GetQuiz(t *testing.T) {
 			name: "When the quiz exists, then return it",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Get(gomock.Any(), defaultQuiz.ID()).Return(defaultQuiz, nil)
+					s.EXPECT().Get(gomock.Any(), actor, defaultQuiz.ID()).Return(defaultQuiz, nil)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 			},
 			wantStatus: http.StatusOK,
 			want: &api.Quiz{
 				Id:          api.QuizId(defaultQuiz.ID()),
+				Owner:       uuid.UUID(actor),
 				Title:       "Animals",
 				Description: "Questions about animals",
 				Visibility:  api.Visibility(domain.Public),
@@ -152,13 +191,38 @@ func TestQuizHandler_GetQuiz(t *testing.T) {
 			},
 		},
 		{
-			name: "When the quiz does not exist, then return not found",
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquizService) {},
+			},
+			args: args{
+				ctx:    func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				quizID: api.QuizId(defaultQuiz.ID()),
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "When the user is not allowed to view the quiz, then return forbidden",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Get(gomock.Any(), gomock.Any()).Return(domain.Quiz{}, application.ErrEntityNotFound)
+					s.EXPECT().Get(gomock.Any(), actor, gomock.Any()).Return(domain.Quiz{}, application.ErrForbidden)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
+				quizID: api.QuizId(defaultQuiz.ID()),
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "When the quiz does not exist, then return not found",
+			fields: fields{
+				service: func(s *MockquizService) {
+					s.EXPECT().Get(gomock.Any(), actor, gomock.Any()).Return(domain.Quiz{}, application.ErrEntityNotFound)
+				},
+			},
+			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 			},
 			wantStatus: http.StatusNotFound,
@@ -167,10 +231,11 @@ func TestQuizHandler_GetQuiz(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Get(gomock.Any(), gomock.Any()).Return(domain.Quiz{}, errors.New("database is down"))
+					s.EXPECT().Get(gomock.Any(), actor, gomock.Any()).Return(domain.Quiz{}, errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -184,7 +249,7 @@ func TestQuizHandler_GetQuiz(t *testing.T) {
 
 			h := quizHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/quizzes/"+tt.args.quizID.String(), nil)
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodGet, "/quizzes/"+tt.args.quizID.String(), nil)
 
 			h.GetQuiz(rec, req, tt.args.quizID)
 
@@ -207,12 +272,21 @@ func TestQuizHandler_GetQuiz(t *testing.T) {
 }
 
 func TestQuizHandler_UpdateQuiz(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", domain.Public)
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquizService)
 	}
 	type args struct {
+		ctx    func(t *testing.T) context.Context
 		quizID api.QuizId
 		body   string
 	}
@@ -226,14 +300,27 @@ func TestQuizHandler_UpdateQuiz(t *testing.T) {
 			name: "When the request is valid, then update the quiz",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Update(gomock.Any(), defaultQuiz.ID(), "Plants", "Questions about plants", domain.Private).Return(nil)
+					s.EXPECT().Update(gomock.Any(), actor, defaultQuiz.ID(), "Plants", "Questions about plants", domain.Private).Return(nil)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 				body:   `{"title":"Plants","description":"Questions about plants","visibility":"private","questions":[]}`,
 			},
 			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquizService) {},
+			},
+			args: args{
+				ctx:    func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				quizID: api.QuizId(defaultQuiz.ID()),
+				body:   `{"title":"Plants","description":"Questions about plants","visibility":"private","questions":[]}`,
+			},
+			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name: "When the request body is malformed, then return bad request",
@@ -241,32 +328,35 @@ func TestQuizHandler_UpdateQuiz(t *testing.T) {
 				service: func(s *MockquizService) {},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 				body:   `{"title":`,
 			},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "When the quiz is invalid, then return bad request",
+			name: "When the user is not allowed to edit the quiz, then return forbidden",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(application.ErrInvalidArguments)
+					s.EXPECT().Update(gomock.Any(), actor, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(application.ErrForbidden)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
-				body:   `{"title":"","description":"","visibility":"public","questions":[]}`,
+				body:   `{"title":"Plants","description":"Questions about plants","visibility":"public","questions":[]}`,
 			},
-			wantStatus: http.StatusBadRequest,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "When the quiz does not exist, then return not found",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(application.ErrEntityNotFound)
+					s.EXPECT().Update(gomock.Any(), actor, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(application.ErrEntityNotFound)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 				body:   `{"title":"Plants","description":"Questions about plants","visibility":"public","questions":[]}`,
 			},
@@ -276,10 +366,11 @@ func TestQuizHandler_UpdateQuiz(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
+					s.EXPECT().Update(gomock.Any(), actor, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 				body:   `{"title":"Plants","description":"Questions about plants","visibility":"public","questions":[]}`,
 			},
@@ -294,7 +385,7 @@ func TestQuizHandler_UpdateQuiz(t *testing.T) {
 
 			h := quizHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/quizzes/"+tt.args.quizID.String(), strings.NewReader(tt.args.body))
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodPut, "/quizzes/"+tt.args.quizID.String(), strings.NewReader(tt.args.body))
 
 			h.UpdateQuiz(rec, req, tt.args.quizID)
 
@@ -306,12 +397,21 @@ func TestQuizHandler_UpdateQuiz(t *testing.T) {
 }
 
 func TestQuizHandler_DeleteQuiz(t *testing.T) {
-	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", domain.Public)
+	session := identity.UserID(uuid.NewV7())
+	actor := domain.UserID(session)
+	actorContext := func(t *testing.T) context.Context {
+		t.Helper()
+
+		return WithActor(t.Context(), session)
+	}
+
+	defaultQuiz, _ := domain.NewQuiz("Animals", "Questions about animals", actor, domain.Public)
 
 	type fields struct {
 		service func(s *MockquizService)
 	}
 	type args struct {
+		ctx    func(t *testing.T) context.Context
 		quizID api.QuizId
 	}
 	tests := []struct {
@@ -324,22 +424,48 @@ func TestQuizHandler_DeleteQuiz(t *testing.T) {
 			name: "When the quiz exists, then delete it",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Delete(gomock.Any(), defaultQuiz.ID()).Return(nil)
+					s.EXPECT().Delete(gomock.Any(), actor, defaultQuiz.ID()).Return(nil)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 			},
 			wantStatus: http.StatusNoContent,
 		},
 		{
-			name: "When the quiz does not exist, then return not found",
+			name: "When the user is not authenticated, then return unauthorized",
+			fields: fields{
+				service: func(s *MockquizService) {},
+			},
+			args: args{
+				ctx:    func(t *testing.T) context.Context { t.Helper(); return t.Context() },
+				quizID: api.QuizId(defaultQuiz.ID()),
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "When the user is not allowed to delete the quiz, then return forbidden",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(application.ErrEntityNotFound)
+					s.EXPECT().Delete(gomock.Any(), actor, gomock.Any()).Return(application.ErrForbidden)
 				},
 			},
 			args: args{
+				ctx:    actorContext,
+				quizID: api.QuizId(defaultQuiz.ID()),
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "When the quiz does not exist, then return not found",
+			fields: fields{
+				service: func(s *MockquizService) {
+					s.EXPECT().Delete(gomock.Any(), actor, gomock.Any()).Return(application.ErrEntityNotFound)
+				},
+			},
+			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 			},
 			wantStatus: http.StatusNotFound,
@@ -348,10 +474,11 @@ func TestQuizHandler_DeleteQuiz(t *testing.T) {
 			name: "When the service fails, then return internal server error",
 			fields: fields{
 				service: func(s *MockquizService) {
-					s.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
+					s.EXPECT().Delete(gomock.Any(), actor, gomock.Any()).Return(errors.New("database is down"))
 				},
 			},
 			args: args{
+				ctx:    actorContext,
 				quizID: api.QuizId(defaultQuiz.ID()),
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -365,7 +492,7 @@ func TestQuizHandler_DeleteQuiz(t *testing.T) {
 
 			h := quizHandler{service: service}
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/quizzes/"+tt.args.quizID.String(), nil)
+			req := httptest.NewRequestWithContext(tt.args.ctx(t), http.MethodDelete, "/quizzes/"+tt.args.quizID.String(), nil)
 
 			h.DeleteQuiz(rec, req, tt.args.quizID)
 

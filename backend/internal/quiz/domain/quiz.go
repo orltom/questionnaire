@@ -8,30 +8,29 @@ import (
 
 type QuizID uuid.UUID
 
-type Visibility string
-
-const (
-	Public  Visibility = "public"
-	Private Visibility = "private"
-)
-
 type Quiz struct {
 	id          QuizID
 	title       string
 	description string
+	owner       UserID
 	visibility  Visibility
 	questions   []QuizQuestion
 }
 
-func NewQuiz(title string, description string, visibility Visibility, questions ...QuizQuestion) (Quiz, error) {
+func NewQuiz(title string, description string, owner UserID, visibility Visibility, questions ...QuizQuestion) (Quiz, error) {
 	if len(title) == 0 {
 		return Quiz{}, errors.New("quiz title is required")
+	}
+
+	if !visibility.Valid() {
+		return Quiz{}, errors.New("unknown visibility")
 	}
 
 	return Quiz{
 		id:          QuizID(uuid.NewV7()),
 		title:       title,
 		description: description,
+		owner:       owner,
 		visibility:  visibility,
 		questions:   questions,
 	}, nil
@@ -54,12 +53,24 @@ func (q *Quiz) Description() string {
 	return q.description
 }
 
+func (q *Quiz) Owner() UserID {
+	return q.owner
+}
+
 func (q *Quiz) Visibility() Visibility {
 	return q.visibility
 }
 
 func (q *Quiz) Questions() []QuizQuestion {
 	return slices.Clone(q.questions)
+}
+
+func (q *Quiz) CanView(actor UserID) bool {
+	return q.visibility == Public || q.owner == actor
+}
+
+func (q *Quiz) CanEdit(actor UserID) bool {
+	return q.owner == actor
 }
 
 func (q *Quiz) Rename(title string) error {
@@ -76,8 +87,14 @@ func (q *Quiz) ChangeDescription(description string) {
 	q.description = description
 }
 
-func (q *Quiz) ChangeVisibility(visibility Visibility) {
+func (q *Quiz) ChangeVisibility(visibility Visibility) error {
+	if !visibility.Valid() {
+		return errors.New("unknown visibility")
+	}
+
 	q.visibility = visibility
+
+	return nil
 }
 
 func (q *Quiz) AddQuestion(id QuestionID, position int) error {
