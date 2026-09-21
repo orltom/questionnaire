@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-	"uuid"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/application"
@@ -112,7 +111,7 @@ func (h challengeHandler) GetChallenge(w http.ResponseWriter, r *http.Request, c
 
 	w.WriteHeader(http.StatusOK)
 
-	err = json.NewEncoder(w).Encode(toAPIChallenge(challenge, h.now()))
+	err = json.NewEncoder(w).Encode(toAPIChallengeOverview(challenge, h.now()))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to encode response", "error", err)
 
@@ -203,6 +202,56 @@ func (h challengeHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request, c
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h challengeHandler) GetChallengeQuestion(w http.ResponseWriter, r *http.Request, challengeID api.ChallengeId, questionID api.QuestionId) {
+	ctx := r.Context()
+
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
+	challenge, err := h.service.Get(ctx, actor, domain.ChallengeID(challengeID))
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to load challenge", "error", err)
+		status, msg := httpError(err)
+		http.Error(w, msg, status)
+
+		return
+	}
+
+	snapshot := challenge.Quiz()
+	for _, q := range snapshot.Questions() {
+		if q.ID() == domain.QuestionID(questionID) {
+			answers := make([]api.ChallengeAnswer, len(q.Answers()))
+			for j, a := range q.Answers() {
+				answers[j] = api.ChallengeAnswer{
+					Id:          api.ChallengeId(a.ID()),
+					Description: a.Description(),
+					Position:    a.Position(),
+				}
+			}
+
+			w.WriteHeader(http.StatusOK)
+
+			err = json.NewEncoder(w).Encode(api.ChallengeQuestion{
+				Id:          api.ChallengeId(q.ID()),
+				Description: q.Description(),
+				Position:    q.Position(),
+				Answers:     answers,
+			})
+			if err != nil {
+				slog.ErrorContext(ctx, "failed to encode response", "error", err)
+			}
+
+			return
+		}
+	}
+
+	http.Error(w, "question not found in challenge", http.StatusNotFound)
+}
+
 func (h challengeHandler) GetChallengeResults(w http.ResponseWriter, r *http.Request, challengeID api.ChallengeId) {
 	ctx := r.Context()
 
@@ -225,7 +274,7 @@ func (h challengeHandler) GetChallengeResults(w http.ResponseWriter, r *http.Req
 	dst := make([]api.Result, len(results))
 	for i, res := range results {
 		dst[i] = api.Result{
-			UserId: uuid.UUID(res.User),
+			UserId: api.QuizId(res.User),
 			Points: res.Points,
 		}
 	}
@@ -248,28 +297,27 @@ func toAPIChallenge(challenge domain.Challenge, now time.Time) api.Challenge {
 		answers := make([]api.ChallengeAnswer, len(q.Answers()))
 		for j, a := range q.Answers() {
 			answers[j] = api.ChallengeAnswer{
-				Id:          uuid.UUID(a.ID()),
+				Id:          api.ChallengeId(a.ID()),
 				Description: a.Description(),
 				Position:    a.Position(),
 			}
 		}
 
 		questions[i] = api.ChallengeQuestion{
-			Id:          uuid.UUID(q.ID()),
+			Id:          api.ChallengeId(q.ID()),
 			Description: q.Description(),
 			Position:    q.Position(),
 			Answers:     answers,
 		}
 	}
 
-	invitees := make([]uuid.UUID, len(challenge.Invitees()))
+	invitees := make([]api.ChallengeId, len(challenge.Invitees()))
 	for i, id := range challenge.Invitees() {
-		invitees[i] = uuid.UUID(id)
+		invitees[i] = api.ChallengeId(id)
 	}
 
 	return api.Challenge{
-		Id:       uuid.UUID(challenge.ID()),
-		Owner:    uuid.UUID(challenge.Owner()),
+		Id:       api.ChallengeId(challenge.ID()),
 		StartsAt: challenge.StartsAt(),
 		EndsAt:   challenge.EndsAt(),
 		ClosedAt: challenge.ClosedAt(),
@@ -277,9 +325,40 @@ func toAPIChallenge(challenge domain.Challenge, now time.Time) api.Challenge {
 		Invitees: invitees,
 		State:    api.ChallengeState(challenge.State(now)),
 		Quiz: api.ChallengeQuiz{
-			QuizId:    uuid.UUID(snapshot.QuizID()),
+			QuizId:    api.ChallengeId(snapshot.QuizID()),
 			Title:     snapshot.Title(),
 			Questions: questions,
 		},
+	}
+}
+
+func toAPIChallengeOverview(challenge domain.Challenge, now time.Time) api.ChallengeOverview {
+	snapshot := challenge.Quiz()
+
+	questions := make([]api.ChallengeQuestionSummary, len(snapshot.Questions()))
+	for i, q := range snapshot.Questions() {
+		questions[i] = api.ChallengeQuestionSummary{
+			Id:          api.ChallengeId(q.ID()),
+			Description: q.Description(),
+			Position:    q.Position(),
+		}
+	}
+
+	invitees := make([]api.ChallengeId, len(challenge.Invitees()))
+	for i, id := range challenge.Invitees() {
+		invitees[i] = api.ChallengeId(id)
+	}
+
+	return api.ChallengeOverview{
+		Id:        api.ChallengeId(challenge.ID()),
+		QuizId:    api.ChallengeId(snapshot.QuizID()),
+		QuizTitle: snapshot.Title(),
+		StartsAt:  challenge.StartsAt(),
+		EndsAt:    challenge.EndsAt(),
+		ClosedAt:  challenge.ClosedAt(),
+		Access:    api.Access(challenge.Access()),
+		Invitees:  invitees,
+		State:     api.ChallengeState(challenge.State(now)),
+		Questions: questions,
 	}
 }

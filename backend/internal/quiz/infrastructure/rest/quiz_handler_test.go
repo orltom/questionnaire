@@ -58,7 +58,7 @@ func TestQuizHandler_CreateQuiz(t *testing.T) {
 			wantStatus: http.StatusCreated,
 			want: &api.Quiz{
 				Id:          api.QuizId(defaultQuiz.ID()),
-				Owner:       uuid.UUID(actor),
+				Owner:       api.QuizId(actor),
 				Title:       "Animals",
 				Description: "Questions about animals",
 				Visibility:  api.Visibility(domain.Public),
@@ -183,7 +183,7 @@ func TestQuizHandler_GetQuiz(t *testing.T) {
 			wantStatus: http.StatusOK,
 			want: &api.Quiz{
 				Id:          api.QuizId(defaultQuiz.ID()),
-				Owner:       uuid.UUID(actor),
+				Owner:       api.QuizId(actor),
 				Title:       "Animals",
 				Description: "Questions about animals",
 				Visibility:  api.Visibility(domain.Public),

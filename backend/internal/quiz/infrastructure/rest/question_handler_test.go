@@ -65,7 +65,7 @@ func TestQuestionHandler_CreateQuestion(t *testing.T) {
 			wantStatus: http.StatusCreated,
 			want: &api.Question{
 				Id:          api.QuestionId(defaultQuestion.ID()),
-				Owner:       uuid.UUID(actor),
+				Owner:       api.QuestionId(actor),
 				Description: "What is the largest animal?",
 				Visibility:  api.Visibility(domain.Public),
 				Labels:      []string{},
@@ -190,7 +190,7 @@ func TestQuestionHandler_GetQuestion(t *testing.T) {
 			wantStatus: http.StatusOK,
 			want: &api.Question{
 				Id:          api.QuestionId(defaultQuestion.ID()),
-				Owner:       uuid.UUID(actor),
+				Owner:       api.QuestionId(actor),
 				Description: "What is the largest animal?",
 				Visibility:  api.Visibility(domain.Public),
 				Labels:      []string{},

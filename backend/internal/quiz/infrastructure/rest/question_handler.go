@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"uuid"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/application"
@@ -177,6 +176,7 @@ func toAPIQuestion(q domain.Question) api.Question {
 	answers := make([]api.Answer, len(q.Answers()))
 	for i, a := range q.Answers() {
 		answers[i] = api.Answer{
+			Id:          api.QuestionId(a.ID()),
 			Description: a.Description(),
 			Position:    a.Position(),
 			Correct:     a.Correct(),
@@ -189,8 +189,8 @@ func toAPIQuestion(q domain.Question) api.Question {
 	}
 
 	return api.Question{
-		Id:          uuid.UUID(q.ID()),
-		Owner:       uuid.UUID(q.Owner()),
+		Id:          api.QuestionId(q.ID()),
+		Owner:       api.QuestionId(q.Owner()),
 		Description: q.Description(),
 		Visibility:  api.Visibility(q.Visibility()),
 		Labels:      labels,

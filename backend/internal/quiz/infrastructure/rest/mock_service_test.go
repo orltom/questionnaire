@@ -43,6 +43,44 @@ func (m *MockquizService) EXPECT() *MockquizServiceMockRecorder {
 	return m.recorder
 }
 
+// AddQuestion mocks base method.
+func (m *MockquizService) AddQuestion(ctx context.Context, actor domain.UserID, id domain.QuizID, qID domain.QuestionID, pos int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddQuestion", ctx, actor, id, qID, pos)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddQuestion indicates an expected call of AddQuestion.
+func (mr *MockquizServiceMockRecorder) AddQuestion(ctx, actor, id, qID, pos any) *MockquizServiceAddQuestionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQuestion", reflect.TypeOf((*MockquizService)(nil).AddQuestion), ctx, actor, id, qID, pos)
+	return &MockquizServiceAddQuestionCall{Call: call}
+}
+
+// MockquizServiceAddQuestionCall wrap *gomock.Call
+type MockquizServiceAddQuestionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockquizServiceAddQuestionCall) Return(arg0 error) *MockquizServiceAddQuestionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockquizServiceAddQuestionCall) Do(f func(context.Context, domain.UserID, domain.QuizID, domain.QuestionID, int) error) *MockquizServiceAddQuestionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockquizServiceAddQuestionCall) DoAndReturn(f func(context.Context, domain.UserID, domain.QuizID, domain.QuestionID, int) error) *MockquizServiceAddQuestionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Create mocks base method.
 func (m *MockquizService) Create(ctx context.Context, actor domain.UserID, title, description string, visibility domain.Visibility) (domain.Quiz, error) {
 	m.ctrl.T.Helper()

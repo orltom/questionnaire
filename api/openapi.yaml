@@ -74,6 +74,27 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /quizzes/{quizId}/questions:
+    parameters:
+      - $ref: "#/components/parameters/QuizId"
+
+    post:
+      summary: Add question to quiz
+      operationId: addQuestionToQuiz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddQuestionToQuiz"
+      responses:
+        "204":
+          description: Question added to quiz
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /challenges:
     post:
       summary: Create challenge
@@ -101,15 +122,15 @@ paths:
       - $ref: "#/components/parameters/ChallengeId"
 
     get:
-      summary: Get challenge
+      summary: Get challenge overview
       operationId: getChallenge
       responses:
         "200":
-          description: Challenge
+          description: Challenge overview with question list
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Challenge"
+                $ref: "#/components/schemas/ChallengeOverview"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -121,6 +142,26 @@ paths:
       responses:
         "204":
           description: Challenge deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /challenges/{challengeId}/question/{questionId}:
+    parameters:
+      - $ref: "#/components/parameters/ChallengeId"
+      - $ref: "#/components/parameters/QuestionId"
+
+    get:
+      summary: Get question from challenge
+      operationId: getChallengeQuestion
+      responses:
+        "200":
+          description: Challenge question with answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeQuestion"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -396,6 +437,22 @@ components:
           type: integer
           minimum: 0
 
+    ChallengeQuestionSummary:
+      type: object
+      required:
+        - id
+        - description
+        - position
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+
     ChallengeQuestion:
       type: object
       required:
@@ -434,11 +491,53 @@ components:
           items:
             $ref: "#/components/schemas/ChallengeQuestion"
 
+    ChallengeOverview:
+      type: object
+      required:
+        - id
+        - quizId
+        - quizTitle
+        - startsAt
+        - access
+        - invitees
+        - state
+        - questions
+      properties:
+        id:
+          type: string
+          format: uuid
+        quizId:
+          type: string
+          format: uuid
+        quizTitle:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+        access:
+          $ref: "#/components/schemas/Access"
+        invitees:
+          type: array
+          items:
+            type: string
+            format: uuid
+        state:
+          $ref: "#/components/schemas/ChallengeState"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeQuestionSummary"
+
     Challenge:
       type: object
       required:
         - id
-        - owner
         - quiz
         - startsAt
         - access
@@ -446,9 +545,6 @@ components:
         - state
       properties:
         id:
-          type: string
-          format: uuid
-        owner:
           type: string
           format: uuid
         quiz:
@@ -526,10 +622,14 @@ components:
     Answer:
       type: object
       required:
+        - id
         - description
         - position
         - correct
       properties:
+        id:
+          type: string
+          format: uuid
         description:
           type: string
         position:
@@ -611,3 +711,16 @@ components:
           minItems: 0
           items:
             $ref: "#/components/schemas/Answer"
+
+    AddQuestionToQuiz:
+      type: object
+      required:
+        - questionId
+        - position
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          minimum: 0

@@ -47,16 +47,16 @@ func TestUserService_Authenticate(t *testing.T) {
 				repository: func(r *MockUserRepository) {
 					r.EXPECT().FindBySubject(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
 					r.EXPECT().Create(gomock.Any(), gomock.Cond(func(u User) bool {
-						return u.Issuer() == "https://accounts.google.com" && u.Subject() == "5678"
+						return u.Issuer() == "https://accounts.google.com" && u.Subject() == "666"
 					})).Return(nil)
 				},
 			},
 			args: args{
 				issuer:  "https://accounts.google.com",
-				subject: "5678",
-				name:    "Grace",
+				subject: "666",
+				name:    "Hugo",
 			},
-			wantName: "Grace",
+			wantName: "Hugo",
 			wantErr:  nil,
 		},
 		{
@@ -68,8 +68,8 @@ func TestUserService_Authenticate(t *testing.T) {
 			},
 			args: args{
 				issuer:  "",
-				subject: "5678",
-				name:    "Grace",
+				subject: "666",
+				name:    "Hugo",
 			},
 			wantErr: ErrInvalidArguments,
 		},
@@ -82,8 +82,8 @@ func TestUserService_Authenticate(t *testing.T) {
 			},
 			args: args{
 				issuer:  "https://accounts.google.com",
-				subject: "5678",
-				name:    "Grace",
+				subject: "666",
+				name:    "Hugo",
 			},
 			wantErr: ErrPersistence,
 		},
@@ -97,8 +97,8 @@ func TestUserService_Authenticate(t *testing.T) {
 			},
 			args: args{
 				issuer:  "https://accounts.google.com",
-				subject: "5678",
-				name:    "Grace",
+				subject: "666",
+				name:    "Hugo",
 			},
 			wantErr: ErrPersistence,
 		},

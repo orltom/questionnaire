@@ -131,15 +131,15 @@ func TestChallengeHandler_GetChallenge(t *testing.T) {
 				t.Errorf("GetChallenge() leaked the answer key: %s", body)
 			}
 
-			var got api.Challenge
+			var got api.ChallengeOverview
 			if err := json.Unmarshal([]byte(body), &got); err != nil {
-				t.Fatalf("GetChallenge() response body is not a challenge: %v", err)
+				t.Fatalf("GetChallenge() response body is not a challenge overview: %v", err)
 			}
 			if got.State != tt.wantState {
 				t.Errorf("GetChallenge() state = %q, want %q", got.State, tt.wantState)
 			}
-			if len(got.Quiz.Questions) != 1 || len(got.Quiz.Questions[0].Answers) != 1 {
-				t.Errorf("GetChallenge() snapshot = %+v, want one question with one answer", got.Quiz)
+			if len(got.Questions) != 1 {
+				t.Errorf("GetChallenge() questions = %+v, want one question", got.Questions)
 			}
 		})
 	}
@@ -399,7 +399,7 @@ func TestChallengeHandler_GetChallengeResults(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 		t.Fatalf("GetChallengeResults() response body is not a result list: %v", err)
 	}
-	if len(got) != 1 || got[0].Points != 3 || got[0].UserId != uuid.UUID(actor) {
+	if len(got) != 1 || got[0].Points != 3 || got[0].UserId != api.QuizId(actor) {
 		t.Errorf("GetChallengeResults() = %+v, want one result with 3 points", got)
 	}
 }

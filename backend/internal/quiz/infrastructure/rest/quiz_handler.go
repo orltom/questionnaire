@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"uuid"
 
 	"gitlab.com/orltom/questionnaire/backend/api"
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/domain"
@@ -16,6 +15,7 @@ type quizService interface {
 	Get(ctx context.Context, actor domain.UserID, id domain.QuizID) (domain.Quiz, error)
 	Update(ctx context.Context, actor domain.UserID, id domain.QuizID, title, description string, visibility domain.Visibility) error
 	Delete(ctx context.Context, actor domain.UserID, id domain.QuizID) error
+	AddQuestion(ctx context.Context, actor domain.UserID, id domain.QuizID, qID domain.QuestionID, pos int) error
 }
 
 type quizHandler struct {
@@ -144,6 +144,38 @@ func (h quizHandler) DeleteQuiz(w http.ResponseWriter, r *http.Request, quizID a
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h quizHandler) AddQuestionToQuiz(w http.ResponseWriter, r *http.Request, quizID api.QuizId) {
+	ctx := r.Context()
+
+	actor, err := actorFrom(ctx)
+	if err != nil {
+		unauthorized(ctx, w, err)
+
+		return
+	}
+
+	var req api.AddQuestionToQuiz
+
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to decode request body", "error", err)
+		http.Error(w, "malformed request body", http.StatusBadRequest)
+
+		return
+	}
+
+	err = h.service.AddQuestion(ctx, actor, domain.QuizID(quizID), domain.QuestionID(req.QuestionId), req.Position)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to add question to quiz", "error", err)
+		status, msg := httpError(err)
+		http.Error(w, msg, status)
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func unauthorized(ctx context.Context, w http.ResponseWriter, err error) {
 	slog.ErrorContext(ctx, "failed to resolve the authenticated user", "error", err)
 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -159,8 +191,8 @@ func toAPIQuiz(resp domain.Quiz) api.Quiz {
 	}
 
 	return api.Quiz{
-		Id:          uuid.UUID(resp.ID()),
-		Owner:       uuid.UUID(resp.Owner()),
+		Id:          api.QuizId(resp.ID()),
+		Owner:       api.QuizId(resp.Owner()),
 		Title:       resp.Title(),
 		Description: resp.Description(),
 		Visibility:  api.Visibility(resp.Visibility()),

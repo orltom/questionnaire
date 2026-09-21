@@ -74,11 +74,18 @@ func (e Visibility) Valid() bool {
 // Access defines model for Access.
 type Access string
 
+// AddQuestionToQuiz defines model for AddQuestionToQuiz.
+type AddQuestionToQuiz struct {
+	Position   int       `json:"position"`
+	QuestionId uuid.UUID `json:"questionId"`
+}
+
 // Answer defines model for Answer.
 type Answer struct {
-	Correct     bool   `json:"correct"`
-	Description string `json:"description"`
-	Position    int    `json:"position"`
+	Correct     bool      `json:"correct"`
+	Description string    `json:"description"`
+	Id          uuid.UUID `json:"id"`
+	Position    int       `json:"position"`
 }
 
 // Challenge defines model for Challenge.
@@ -88,7 +95,6 @@ type Challenge struct {
 	EndsAt   *time.Time     `json:"endsAt,omitempty"`
 	Id       uuid.UUID      `json:"id"`
 	Invitees []uuid.UUID    `json:"invitees"`
-	Owner    uuid.UUID      `json:"owner"`
 	Quiz     ChallengeQuiz  `json:"quiz"`
 	StartsAt time.Time      `json:"startsAt"`
 	State    ChallengeState `json:"state"`
@@ -101,12 +107,33 @@ type ChallengeAnswer struct {
 	Position    int       `json:"position"`
 }
 
+// ChallengeOverview defines model for ChallengeOverview.
+type ChallengeOverview struct {
+	Access    Access                     `json:"access"`
+	ClosedAt  *time.Time                 `json:"closedAt,omitempty"`
+	EndsAt    *time.Time                 `json:"endsAt,omitempty"`
+	Id        uuid.UUID                  `json:"id"`
+	Invitees  []uuid.UUID                `json:"invitees"`
+	Questions []ChallengeQuestionSummary `json:"questions"`
+	QuizId    uuid.UUID                  `json:"quizId"`
+	QuizTitle string                     `json:"quizTitle"`
+	StartsAt  time.Time                  `json:"startsAt"`
+	State     ChallengeState             `json:"state"`
+}
+
 // ChallengeQuestion defines model for ChallengeQuestion.
 type ChallengeQuestion struct {
 	Answers     []ChallengeAnswer `json:"answers"`
 	Description string            `json:"description"`
 	Id          uuid.UUID         `json:"id"`
 	Position    int               `json:"position"`
+}
+
+// ChallengeQuestionSummary defines model for ChallengeQuestionSummary.
+type ChallengeQuestionSummary struct {
+	Description string    `json:"description"`
+	Id          uuid.UUID `json:"id"`
+	Position    int       `json:"position"`
 }
 
 // ChallengeQuiz defines model for ChallengeQuiz.
@@ -228,6 +255,9 @@ type CreateQuizJSONRequestBody = CreateQuiz
 // UpdateQuizJSONRequestBody defines body for UpdateQuiz for application/json ContentType.
 type UpdateQuizJSONRequestBody = UpdateQuiz
 
+// AddQuestionToQuizJSONRequestBody defines body for AddQuestionToQuiz for application/json ContentType.
+type AddQuestionToQuizJSONRequestBody = AddQuestionToQuiz
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// CreateChallenge Create challenge
@@ -236,7 +266,7 @@ type ServerInterface interface {
 	// DeleteChallenge Delete challenge
 	// (DELETE /challenges/{challengeId})
 	DeleteChallenge(w http.ResponseWriter, r *http.Request, challengeId ChallengeId)
-	// GetChallenge Get challenge
+	// GetChallenge Get challenge overview
 	// (GET /challenges/{challengeId})
 	GetChallenge(w http.ResponseWriter, r *http.Request, challengeId ChallengeId)
 	// SubmitAnswer Submit an answer
@@ -245,6 +275,9 @@ type ServerInterface interface {
 	// CloseChallenge Close challenge
 	// (POST /challenges/{challengeId}/close)
 	CloseChallenge(w http.ResponseWriter, r *http.Request, challengeId ChallengeId)
+	// GetChallengeQuestion Get question from challenge
+	// (GET /challenges/{challengeId}/question/{questionId})
+	GetChallengeQuestion(w http.ResponseWriter, r *http.Request, challengeId ChallengeId, questionId QuestionId)
 	// GetChallengeResults Get challenge results
 	// (GET /challenges/{challengeId}/results)
 	GetChallengeResults(w http.ResponseWriter, r *http.Request, challengeId ChallengeId)
@@ -272,6 +305,9 @@ type ServerInterface interface {
 	// UpdateQuiz Update quiz
 	// (PUT /quizzes/{quizId})
 	UpdateQuiz(w http.ResponseWriter, r *http.Request, quizId QuizId)
+	// AddQuestionToQuiz Add question to quiz
+	// (POST /quizzes/{quizId}/questions)
+	AddQuestionToQuiz(w http.ResponseWriter, r *http.Request, quizId QuizId)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -392,6 +428,41 @@ func (siw *ServerInterfaceWrapper) CloseChallenge(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CloseChallenge(w, r, challengeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetChallengeQuestion operation middleware
+func (siw *ServerInterfaceWrapper) GetChallengeQuestion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "challengeId" -------------
+	var challengeId ChallengeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "challengeId", r.PathValue("challengeId"), &challengeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "challengeId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "questionId" -------------
+	var questionId QuestionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questionId", r.PathValue("questionId"), &questionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChallengeQuestion(w, r, challengeId, questionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -611,6 +682,32 @@ func (siw *ServerInterfaceWrapper) UpdateQuiz(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// AddQuestionToQuiz operation middleware
+func (siw *ServerInterfaceWrapper) AddQuestionToQuiz(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "quizId" -------------
+	var quizId QuizId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "quizId", r.PathValue("quizId"), &quizId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "quizId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddQuestionToQuiz(w, r, quizId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -735,9 +832,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/quizzes/{quizId}", wrapper.DeleteQuiz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/quizzes/{quizId}", wrapper.GetQuiz)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/quizzes/{quizId}", wrapper.UpdateQuiz)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/quizzes/{quizId}/questions", wrapper.AddQuestionToQuiz)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/challenges", wrapper.CreateChallenge)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/challenges/{challengeId}", wrapper.DeleteChallenge)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/challenges/{challengeId}", wrapper.GetChallenge)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/challenges/{challengeId}/question/{questionId}", wrapper.GetChallengeQuestion)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/challenges/{challengeId}/close", wrapper.CloseChallenge)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/challenges/{challengeId}/answers", wrapper.SubmitAnswer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/challenges/{challengeId}/results", wrapper.GetChallengeResults)

@@ -24,3 +24,4 @@ The server listens on `:8080`. Data is kept in memory and is lost on restart.
 - Follow Domain Driven Principles
 - OpenAPI first, server stubs are generated from `../api/openapi.yaml`
 - Keep dependencies to a minimum
+- Starting with a simple in memory solution until data structure is stable
