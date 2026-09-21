@@ -13,7 +13,7 @@ func ExtractUser(next http.Handler, service *identity.UserService) http.Handler 
 		ctx := r.Context()
 		user, err := service.Authenticate(ctx, "https://accounts.google.com", "1234", "demo")
 		if err != nil {
-			slog.ErrorContext(ctx, "failed to authenticate: %v", err)
+			slog.ErrorContext(ctx, "failed to authenticate", "error", err)
 			http.Error(w, "unexpected error", http.StatusInternalServerError)
 			return
 		}
