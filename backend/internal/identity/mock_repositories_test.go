@@ -78,41 +78,41 @@ func (c *MockUserRepositoryCreateCall) DoAndReturn(f func(context.Context, User)
 	return c
 }
 
-// FindBySubject mocks base method.
-func (m *MockUserRepository) FindBySubject(ctx context.Context, issuer, subject string) (User, error) {
+// Find mocks base method.
+func (m *MockUserRepository) Find(ctx context.Context, issuer, subject string) (User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindBySubject", ctx, issuer, subject)
+	ret := m.ctrl.Call(m, "Find", ctx, issuer, subject)
 	ret0, _ := ret[0].(User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindBySubject indicates an expected call of FindBySubject.
-func (mr *MockUserRepositoryMockRecorder) FindBySubject(ctx, issuer, subject any) *MockUserRepositoryFindBySubjectCall {
+// Find indicates an expected call of Find.
+func (mr *MockUserRepositoryMockRecorder) Find(ctx, issuer, subject any) *MockUserRepositoryFindCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindBySubject", reflect.TypeOf((*MockUserRepository)(nil).FindBySubject), ctx, issuer, subject)
-	return &MockUserRepositoryFindBySubjectCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockUserRepository)(nil).Find), ctx, issuer, subject)
+	return &MockUserRepositoryFindCall{Call: call}
 }
 
-// MockUserRepositoryFindBySubjectCall wrap *gomock.Call
-type MockUserRepositoryFindBySubjectCall struct {
+// MockUserRepositoryFindCall wrap *gomock.Call
+type MockUserRepositoryFindCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUserRepositoryFindBySubjectCall) Return(arg0 User, arg1 error) *MockUserRepositoryFindBySubjectCall {
+func (c *MockUserRepositoryFindCall) Return(arg0 User, arg1 error) *MockUserRepositoryFindCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserRepositoryFindBySubjectCall) Do(f func(context.Context, string, string) (User, error)) *MockUserRepositoryFindBySubjectCall {
+func (c *MockUserRepositoryFindCall) Do(f func(context.Context, string, string) (User, error)) *MockUserRepositoryFindCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserRepositoryFindBySubjectCall) DoAndReturn(f func(context.Context, string, string) (User, error)) *MockUserRepositoryFindBySubjectCall {
+func (c *MockUserRepositoryFindCall) DoAndReturn(f func(context.Context, string, string) (User, error)) *MockUserRepositoryFindCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -34,7 +34,7 @@ func (i *InMemoryUserRepository) Create(_ context.Context, user identity.User) e
 	return nil
 }
 
-func (i *InMemoryUserRepository) FindBySubject(_ context.Context, issuer string, subject string) (identity.User, error) {
+func (i *InMemoryUserRepository) Find(_ context.Context, issuer string, subject string) (identity.User, error) {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
 

@@ -30,7 +30,7 @@ func TestUserService_Authenticate(t *testing.T) {
 			name: "When the user is known, then return the existing user",
 			mocks: mocks{
 				repository: func(r *MockUserRepository) {
-					r.EXPECT().FindBySubject(gomock.Any(), "https://accounts.google.com", "1234").Return(existing, nil)
+					r.EXPECT().Find(gomock.Any(), "https://accounts.google.com", "1234").Return(existing, nil)
 				},
 			},
 			args: args{
@@ -45,7 +45,7 @@ func TestUserService_Authenticate(t *testing.T) {
 			name: "When the user is unknown, then create it",
 			mocks: mocks{
 				repository: func(r *MockUserRepository) {
-					r.EXPECT().FindBySubject(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
+					r.EXPECT().Find(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
 					r.EXPECT().Create(gomock.Any(), gomock.Cond(func(u User) bool {
 						return u.Issuer() == "https://accounts.google.com" && u.Subject() == "666"
 					})).Return(nil)
@@ -63,7 +63,7 @@ func TestUserService_Authenticate(t *testing.T) {
 			name: "When the issuer is missing, then return an invalid arguments error",
 			mocks: mocks{
 				repository: func(r *MockUserRepository) {
-					r.EXPECT().FindBySubject(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
+					r.EXPECT().Find(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
 				},
 			},
 			args: args{
@@ -77,7 +77,7 @@ func TestUserService_Authenticate(t *testing.T) {
 			name: "When the repository fails, then return a persistence error",
 			mocks: mocks{
 				repository: func(r *MockUserRepository) {
-					r.EXPECT().FindBySubject(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, errors.New("database is down"))
+					r.EXPECT().Find(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, errors.New("database is down"))
 				},
 			},
 			args: args{
@@ -91,7 +91,7 @@ func TestUserService_Authenticate(t *testing.T) {
 			name: "When saving the user fails, then return a persistence error",
 			mocks: mocks{
 				repository: func(r *MockUserRepository) {
-					r.EXPECT().FindBySubject(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
+					r.EXPECT().Find(gomock.Any(), gomock.Any(), gomock.Any()).Return(User{}, ErrEntityNotFound)
 					r.EXPECT().Create(gomock.Any(), gomock.Any()).Return(errors.New("database is down"))
 				},
 			},
