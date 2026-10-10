@@ -17,10 +17,10 @@ type QuizRepository interface {
 
 type QuizService struct {
 	repository    QuizRepository
-	lookupService QuestionLookupService
+	lookupService QuestionLookup
 }
 
-func NewQuizService(repository QuizRepository, lookupService QuestionLookupService) *QuizService {
+func NewQuizService(repository QuizRepository, lookupService QuestionLookup) *QuizService {
 	return &QuizService{
 		repository:    repository,
 		lookupService: lookupService,

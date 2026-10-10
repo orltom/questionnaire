@@ -16,10 +16,10 @@ import (
 type TestClient struct {
 	*http.Client
 	baseURL string
-	userID  uuid.UUID
+	userID  string
 }
 
-func NewTestClient(baseURL string, userID uuid.UUID) *TestClient {
+func NewTestClient(baseURL string, userID string) *TestClient {
 	return &TestClient{
 		Client:  &http.Client{},
 		baseURL: baseURL,
@@ -27,7 +27,7 @@ func NewTestClient(baseURL string, userID uuid.UUID) *TestClient {
 	}
 }
 
-func (tc *TestClient) AsUser(userID uuid.UUID) *TestClient {
+func (tc *TestClient) AsUser(userID string) *TestClient {
 	return &TestClient{
 		Client:  tc.Client,
 		baseURL: tc.baseURL,
@@ -171,7 +171,7 @@ func (tc *TestClient) post(path string, body any) ([]byte, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Test-User-ID", tc.userID.String())
+	req.Header.Set("X-Test-User-ID", tc.userID)
 
 	resp, err := tc.Do(req)
 	if err != nil {
@@ -197,7 +197,7 @@ func (tc *TestClient) get(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	req.Header.Set("X-Test-User-ID", tc.userID.String())
+	req.Header.Set("X-Test-User-ID", tc.userID)
 
 	resp, err := tc.Do(req)
 	if err != nil {

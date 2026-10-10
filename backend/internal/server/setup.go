@@ -11,6 +11,15 @@ import (
 	"gitlab.com/orltom/questionnaire/backend/internal/quiz/infrastructure/rest"
 )
 
+type Repositories struct {
+	QuestionRepository      application.QuestionRepository
+	QuestionLookup          application.QuestionLookup
+	QuizRepository          application.QuizRepository
+	ChallengeRepository     application.ChallengeRepository
+	ParticipationRepository application.ParticipationRepository
+	UserRepository          identity.UserRepository
+}
+
 type ServerDependency struct {
 	QuestionSvc      *application.QuestionService
 	QuizSvc          *application.QuizService
@@ -19,18 +28,28 @@ type ServerDependency struct {
 	IdentitySvc      *identity.UserService
 }
 
-func SetupServiceLayer() *ServerDependency {
+func BuildInMemoryRepositories() *Repositories {
 	questionRepository := persistence.NewInMemoryQuestionRepository()
 	quizRepository := persistence.NewInMemoryQuizRepository()
 	challengeRepository := persistence.NewInMemoryChallengeRepository()
 	participationRepository := persistence.NewInMemoryParticipationRepository()
 	userRepository := persistence.NewInMemoryUserRepository()
+	return &Repositories{
+		QuestionRepository:      questionRepository,
+		QuestionLookup:          questionRepository,
+		QuizRepository:          quizRepository,
+		ChallengeRepository:     challengeRepository,
+		ParticipationRepository: participationRepository,
+		UserRepository:          userRepository,
+	}
+}
 
-	identitySvc := identity.NewUserService(userRepository)
-	questionSvc := application.NewQuestionService(questionRepository)
-	quizSvc := application.NewQuizService(quizRepository, questionRepository)
-	challengeSvc := application.NewChallengeService(challengeRepository, quizRepository, questionRepository)
-	participationSvc := application.NewParticipationService(participationRepository, challengeRepository)
+func BuildServerDependency(repos *Repositories) *ServerDependency {
+	identitySvc := identity.NewUserService(repos.UserRepository)
+	questionSvc := application.NewQuestionService(repos.QuestionRepository)
+	quizSvc := application.NewQuizService(repos.QuizRepository, repos.QuestionLookup)
+	challengeSvc := application.NewChallengeService(repos.ChallengeRepository, repos.QuizRepository, repos.QuestionRepository)
+	participationSvc := application.NewParticipationService(repos.ParticipationRepository, repos.ChallengeRepository)
 
 	return &ServerDependency{
 		QuestionSvc:      questionSvc,

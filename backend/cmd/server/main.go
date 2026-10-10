@@ -15,8 +15,9 @@ func main() {
 	logger := slog.New(jsonHandler)
 	slog.SetDefault(logger)
 
-	deps := server.SetupServiceLayer()
-	handler := server.BuildMux(deps)
+	repos := server.BuildInMemoryRepositories()
+	services := server.BuildServerDependency(repos)
+	handler := server.BuildMux(services)
 
 	srv := &http.Server{
 		Addr:              ":8080",

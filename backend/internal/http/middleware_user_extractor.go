@@ -11,7 +11,8 @@ import (
 func ExtractUser(next http.Handler, service *identity.UserService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		user, err := service.Authenticate(ctx, "https://accounts.google.com", "1234", "demo")
+		username := r.Header.Get("X-Test-User-ID")
+		user, err := service.Authenticate(ctx, "https://accounts.google.com", username, username)
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to authenticate", "error", err)
 			http.Error(w, "unexpected error", http.StatusInternalServerError)
