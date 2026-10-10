@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 
-version: '3'
+version: "3"
 
 silent: false
 
@@ -46,5 +46,15 @@ tasks:
   build:
     desc: build back-end application
     deps: [generate]
+    env:
+      CGO_ENABLED: 0
     cmds:
-      - go build -o bin/server ./cmd/server
+      - go build -trimpath -o bin/server ./cmd/server
+
+  docker-build:
+    desc: build docker image
+    deps: [build]
+    vars:
+      TAG: '{{.TAG | default "questionnaire-backend:latest"}}'
+    cmds:
+      - docker build -t {{.TAG}} .
