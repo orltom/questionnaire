@@ -1,6 +1,7 @@
 # Questionnaire
 
 [![Back-end](https://github.com/orltom/questionnaire/actions/workflows/backend.yml/badge.svg?branch=main)](https://github.com/orltom/questionnaire/actions/workflows/backend.yml)
+[![Mobile](https://github.com/orltom/questionnaire/actions/workflows/mobile.yml/badge.svg?branch=main)](https://github.com/orltom/questionnaire/actions/workflows/mobile.yml)
 
 A platform for creating and running questionnaires. The first supported type is a Quiz.
 

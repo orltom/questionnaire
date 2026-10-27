@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+silent: false
+
+tasks:
+  default:
+    desc: check and build the Android application
+    deps: [check, build]
+
+  pub-get:
+    desc: fetch dependencies
+    cmds:
+      - flutter pub get
+
+  analyze:
+    desc: run static analysis
+    deps: [pub-get]
+    cmds:
+      - flutter analyze
+
+  test:
+    desc: run unit and widget tests
+    deps: [pub-get]
+    cmds:
+      - flutter test
+
+  check:
+    desc: analyze and test
+    cmds:
+      - task: analyze
+      - task: test
+
+  build:
+    desc: build the Android APK
+    deps: [pub-get]
+    cmds:
+      - flutter build apk --release
+
+  build-appbundle:
+    desc: build the Android app bundle for the Play Store
+    deps: [pub-get]
+    cmds:
+      - flutter build appbundle --release
+
+  clean:
+    desc: remove build artifacts
+    cmds:
+      - flutter clean
