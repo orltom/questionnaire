@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'mobile/**'
+      - 'api/openapi.yaml'
       - '.github/workflows/mobile.yml'
   pull_request:
     paths:
       - 'mobile/**'
+      - 'api/openapi.yaml'
       - '.github/workflows/mobile.yml'
 
 permissions:
@@ -37,6 +39,14 @@ jobs:
       - uses: go-task/setup-task@v2
         with:
           version: 3.x
+
+      - name: Generate API client
+        run: task generate
+
+      - name: Verify generated client is up to date
+        run: |
+          git add --all .
+          git diff --cached --exit-code
 
       - name: Check
         run: task check

@@ -9,6 +9,24 @@ tasks:
     desc: check and build the Android application
     deps: [check, build]
 
+  generate:
+    desc: generate the Dart API client from the OpenAPI contract (needs docker)
+    vars:
+      GENERATOR: openapitools/openapi-generator-cli:v7.12.0
+    cmds:
+      - rm -rf packages/questionnaire_api
+      - mkdir -p packages/questionnaire_api
+      - >-
+        docker run --rm -u "$(id -u):$(id -g)"
+        -v "{{.ROOT_DIR}}/../api:/spec:ro"
+        -v "{{.ROOT_DIR}}/packages/questionnaire_api:/out"
+        {{.GENERATOR}} generate
+        -i /spec/openapi.yaml -g dart -o /out
+        --additional-properties=pubName=questionnaire_api,pubVersion=0.1.0
+        --global-property=apiTests=false,modelTests=false,apiDocs=false,modelDocs=false
+      - rm -f packages/questionnaire_api/git_push.sh packages/questionnaire_api/.travis.yml packages/questionnaire_api/README.md
+      - rm -rf packages/questionnaire_api/.openapi-generator packages/questionnaire_api/.openapi-generator-ignore
+
   pub-get:
     desc: fetch dependencies
     cmds:

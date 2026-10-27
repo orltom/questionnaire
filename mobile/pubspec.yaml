@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  questionnaire_api:
+    path: packages/questionnaire_api
 
 dev_dependencies:
   flutter_test:
